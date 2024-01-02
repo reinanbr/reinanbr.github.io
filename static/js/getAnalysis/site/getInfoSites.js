@@ -5,7 +5,9 @@ export function getInfoSites() {
             return res.json()
         })
         .then((json)=>{
-       
+           // console.log(json)
+            
+
             for(let site in json){
                 let access = json[site].access
                 $(`#${site}_access`).text(`${access.count_access}`)
