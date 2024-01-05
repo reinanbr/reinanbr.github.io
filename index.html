@@ -42,15 +42,25 @@
       <h2>Server's</h2>
     </summary>
     <div class="content">
-      <div class="card" " style=" margin-left:10px; width: 20.5rem;">
-       <hr />
-        <div class="row" style=" width: 20rem;text-align:center">
-
-        
-          <p><small><small><i>Contagem iniciada no dia 20 Out 2023</i></small></small>
-          <br><small><small><i><a href='/calendar.html?cardapioif'>Ver Calendário de Acessos</a></i></small></small></p>
-
+      <div class="card" style=" margin-left:10px; width: 25.5rem;">
+        <hr />
+        <div class="row" style="margin-left:10px; width: 28rem;">
+          <div class="col-sm mt-3 row-mt " style="">
+            <h4 style="margin-bottom:0">CPU</h4>
+            <small><i id="infoCpu"></i></small>
+            <hr>
+            <small><p style="margin:0"><b>Freq:</b><i id='cpuFreq'></i></p></small>           
+            <hr style="width:100px;color:gray;margin:0">
+            <small><p style="margin:0"><b>Percent:</b><i id='cpuPercent'></i></p></small> 
+          </div>
+          <div class="col-sm mt-3 row-mt mb-2" >
+            <img id='spinn' src='assets/img/spin.png' class="spinning">
+          </div>
         </div>
+
+
+
+
       </div>
     </div>
   </details>
@@ -66,8 +76,11 @@
       <div class="card" " style=" margin-left:10px; width: 20.5rem;">
         <h3 style="margin-bottom:0;margin-left:10px"><img style='border-radius:20px'
             src='https://reinanbr.github.io/cardapio/assets/logo/logo2.jpg' width='30px' height='30px'> Cardapio IF</h3>
-        <p style="margin-bottom:0"><small><i>Site publicado no dia 15 Out 2023 </i></small> <small><span style="color:grey">  status:<span id="cardapio_statusCode"></span><img id="cardapio_statusImg" width="25px" src="assets/img/offline.gif"/><br/><span id="cardapio_statusPing"></span></small>
-          <br /><small><i><a href="https://cardapioif.reysofts.com.br">www.cardapioif.reysofts.com.br/</a></i></small></p>
+        <p style="margin-bottom:0"><small><i>Site publicado no dia 15 Out 2023 </i></small> <small><span
+              style="color:grey"> status:<span id="cardapio_statusCode"></span><img id="cardapio_statusImg" width="25px"
+                src="assets/img/offline.gif" /><br /><span id="cardapio_statusPing"></span></small>
+          <br /><small><i><a href="https://cardapioif.reysofts.com.br">www.cardapioif.reysofts.com.br/</a></i></small>
+        </p>
         <hr />
         <div class="row" style=" width: 20rem;text-align:center">
 
@@ -75,7 +88,7 @@
             style="margin-left:18px; width: 10rem;text-align:center">
             <h4 id="cardapioif_access">0</h4>
             <h6>Acessos</h6>
-          
+
           </div>
           <div class='card shadow-lg card  col-sm mt-3 row-mt mb-2'
             style="margin-left:18px; width: 10rem;text-align:center">
@@ -97,7 +110,8 @@
             <h6>Notif. Ativas</h6>
           </div>
           <p><small><small><i>Contagem iniciada no dia 20 Out 2023</i></small></small>
-          <br><small><small><i><a href='/calendar.html?cardapioif'>Ver Calendário de Acessos</a></i></small></small></p>
+            <br><small><small><i><a href='/calendar.html?cardapioif'>Ver Calendário de Acessos</a></i></small></small>
+          </p>
 
         </div>
       </div>
@@ -136,10 +150,10 @@
     </div>
   </details>
 
-
+  <br><br><br><br><br><br><br><br>
 
   <!-- Remove the container if you want to extend the Footer to full width. -->
-  <div class=" my-5" style=" margin:0">
+  <div class="" style=" margin:0">
 
     <footer class="text-center text-white" style="background-color: #f1f1f1; width:100%">
       <!-- Grid container -->
@@ -185,6 +199,8 @@
   <!-- End of .container -->
 
 
+
+
   <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
     integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
     crossorigin="anonymous"></script>
@@ -195,6 +211,42 @@
     integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
     crossorigin="anonymous"></script>
   <script type="module" src="/static/js/run.js"></script>
+
+  <script>
+    function setRotationSpeed(seconds) {
+      const imagem = document.getElementById('spinn');
+      imagem.style.animationDuration = seconds + 's';
+
+    }
+
+    // Exemplo de uso: mudar a velocidade para 1 segundo
+    setRotationSpeed(1);
+
+
+
+
+
+    function setInfo() {
+      fetch('http://localhost:5000/system_info')
+        .then((res) => {
+          return res.json()
+        }).then((json) => {
+          let percentCpu = json.cpu.stats.frequency.percent
+          let speed = 1 - percentCpu/100
+          setRotationSpeed(speed)
+          let freq = (json.cpu.stats.frequency.used).toFixed(2)
+          let percent = json.cpu.stats.frequency.percent
+          let infoCpu = `${json.cpu.info.brand_raw} ${json.cpu.info.count}x(${json.cpu.info.arch})`
+          $("#cpuFreq").text(`${freq}MHz`)
+          $("#cpuPercent").text(`${percent}%`)
+          $("#infoCpu").text(infoCpu)
+
+
+        })
+    }
+
+    setInterval(setInfo, 900)
+  </script>
 </body>
 
 </html>
