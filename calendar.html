@@ -22,6 +22,11 @@
   <link rel='stylesheet' href="/static/css/style.css">
   <title>ReySofts</title>
   <style>
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -127,11 +132,17 @@
       }
     }
 
-
+    td {
+      background-color: #1abc9c;
+    }
 
 
     .calendario {
+
       font-family: Arial, sans-serif;
+      border-radius: 10px 10px 10px 10px;
+      margin-left: 10px;
+      margin-right: 10px;
       margin-bottom: 20px;
     }
 
@@ -139,10 +150,12 @@
       width: 100%;
       border-collapse: collapse;
     }
-
+    .calendario details{
+      border-radius: 8px solid #000;
+    }
     .calendario th,
     .calendario td {
-      border: 1px solid #ddd;
+      border: 0.5px solid #ddd;
       padding: 5px;
       text-align: center;
     }
@@ -166,96 +179,16 @@
 
   <h2 id="titlePage"></h2>
 
-  <hr/>
-  <br/>
+  <hr />
+  <br />
   <div id="calendarios"></div>
 
 
-  <script>
-    function getQueryParam(param) {
-      const urlParams = (window.location.search.split("?")[1]);
-      console.log(urlParams)
-      return urlParams
-      }
 
-
-
-    function gerarCalendario(mes, ano, jsonDataAccess) {
-      console.log(jsonDataAccess)
-      const diasDaSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      let data = new Date(ano, mes, 1);
-      let calendarioHTML = `<div class="calendario"><h3>${data.toLocaleString('pt-BR', { month: 'long' })} de ${ano}</h3>`;
-      calendarioHTML += `<table><thead><tr>`;
-
-      // Cabeçalho do calendário
-      diasDaSemana.forEach(dia => {
-        calendarioHTML += `<th>${dia}</th>`;
-      });
-      calendarioHTML += `</tr></thead><tbody><tr>`;
-
-      // Espaços para dias da semana até o primeiro dia do mês
-      for (let i = 0; i < data.getDay(); i++) {
-        calendarioHTML += `<td></td>`;
-      }
-
-      // Dias do mês
-      while (data.getMonth() === mes) {
-        let dia = data.getDate()
-        let m = mes + 1
-        let day = `${dia}`.length > 1 ? dia : `0${dia}`
-        let month = `${m}`.length > 1 ? m : `0${m}`
-        let dayKey = `${day}/${month}/${ano}`
-       // console.log(dayKey)
-        let infoDay = jsonDataAccess[dayKey] ?? {access:''}
-        calendarioHTML += `<td><b>${day}</b><br><i style="{color:green}"><small><p style="color:green">${infoDay.access}</p></small></i></td>`;
-
-        if (data.getDay() === 6) {
-          calendarioHTML += `</tr><tr>`;
-        }
-
-        data.setDate(data.getDate() + 1);
-      }
-
-      if (data.getDay() !== 0) {
-        calendarioHTML += `</tr>`;
-      }
-
-      calendarioHTML += `</tbody></table></div>`;
-      return calendarioHTML;
-    }
-
-    // Meses de outubro de 2023 a janeiro de 2024
-    const meses = [
-      { mes: 9, ano: 2023 },
-      { mes: 10, ano: 2023 },
-      { mes: 11, ano: 2023 },
-      { mes: 0, ano: 2024 },
-    ];
-
-    fetch("https://reysofts.com.br/apis/engine.php").
-      then((res) => {
-        return res.json()
-      })
-      .then((json) => {
-        let projectName = getQueryParam('name_site')
-        console.log(projectName)
-        let jsonData = json[projectName]
-        $("#titlePage").text(`Calendário de Acessos - ${jsonData.name}`)
-        let dataJsonAccessCardapio = jsonData.access.json_access
-        console.log(dataJsonAccessCardapio)
-        const containerCalendarios = document.getElementById('calendarios');
-
-        meses.forEach(({ mes, ano }) => {
-          containerCalendarios.innerHTML += gerarCalendario(mes, ano, dataJsonAccessCardapio);
-        });
-
-      })
-
-  </script>
 
 
   <!-- Remove the container if you want to extend the Footer to full width. -->
-  <div class=" my-5" style=" margin:0">
+  <div class=" my" style=" margin:0">
 
     <footer class="text-center text-white" style="background-color: #f1f1f1; width:100%">
       <!-- Grid container -->
@@ -311,6 +244,96 @@
     integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
     crossorigin="anonymous"></script>
   <script type="module" src="/static/js/run.js"></script>
+
+
+
+
+
+
+
+  <script>
+
+    function getQueryParam(param) {
+      const urlParams = (window.location.search.split("?")[1]);
+      console.log(urlParams)
+      return urlParams
+    }
+
+
+
+    function gerarCalendario(mes, ano, jsonDataAccess) {
+      console.log(jsonDataAccess)
+      const diasDaSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      let data = new Date(ano, mes, 1);
+      let calendarioHTML = `<div class="calendario"><details><summary><h3>${data.toLocaleString('pt-BR', { month: 'long' })} de ${ano}</h3><small>test</small></summary>`;
+      calendarioHTML += `<table><thead><tr>`;
+
+      // Cabeçalho do calendário
+      diasDaSemana.forEach(dia => {
+        calendarioHTML += `<th>${dia}</th>`;
+      });
+      calendarioHTML += `</tr></thead><tbody><tr>`;
+
+      // Espaços para dias da semana até o primeiro dia do mês
+      for (let i = 0; i < data.getDay(); i++) {
+        calendarioHTML += `<td></td>`;
+      }
+
+      // Dias do mês
+      while (data.getMonth() === mes) {
+        let dia = data.getDate()
+        let m = mes + 1
+        let day = `${dia}`.length > 1 ? dia : `0${dia}`
+        let month = `${m}`.length > 1 ? m : `0${m}`
+        let dayKey = `${day}/${month}/${ano}`
+        // console.log(dayKey)
+        let infoDay = jsonDataAccess[dayKey] ?? { access: '' }
+        calendarioHTML += `<td bgcolor="green"><b>${day}</b><br><i style="{color:green}"><small><p style="color:cyan">${infoDay.access}</p></small></i></td>`;
+
+        if (data.getDay() === 6) {
+          calendarioHTML += `</tr><tr>`;
+        }
+
+        data.setDate(data.getDate() + 1);
+      }
+
+      if (data.getDay() !== 0) {
+        calendarioHTML += `</tr>`;
+      }
+
+      calendarioHTML += `</tbody></table></details></div>`;
+      return calendarioHTML;
+    }
+
+    // Meses de outubro de 2023 a janeiro de 2024
+    const meses = [
+      { mes: 9, ano: 2023 },
+      { mes: 10, ano: 2023 },
+      { mes: 11, ano: 2023 },
+      { mes: 0, ano: 2024 },
+    ];
+
+    fetch("https://reysofts.com.br/apis/engine.php").
+      then((res) => {
+        return res.json()
+      })
+      .then((json) => {
+        let projectName = getQueryParam('name_site')
+        console.log(projectName)
+        let jsonData = json[projectName]
+        $("#titlePage").text(`Calendário de Acessos - ${jsonData.name}`)
+        let dataJsonAccessCardapio = jsonData.access.json_access
+        console.log(dataJsonAccessCardapio)
+        const containerCalendarios = document.getElementById('calendarios');
+
+        meses.forEach(({ mes, ano }) => {
+          containerCalendarios.innerHTML += gerarCalendario(mes, ano, dataJsonAccessCardapio);
+        });
+
+      })
+
+  </script>
+
 </body>
 
 </html>

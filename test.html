@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Change Bar Color</title>
+<style>
+    #colorBar {
+        width: 300px;
+        height: 30px;
+        background-color: blue;
+        transition: background-color 0.5s ease;
+    }
+</style>
+</head>
+<body>
+    <input type="range" min="0" max="100" value="0" id="colorRange" oninput="changeColor()">
+    <div id="colorBar"></div>
+
+    <script>
+        function changeColor() {
+            var rangeValue = document.getElementById("colorRange").value;
+            var colorBar = document.getElementById("colorBar");
+            
+            var hue = calculateHue(rangeValue);
+            colorBar.style.backgroundColor = "hsl(" + hue + ", 100%, 50%)";
+            colorBar.style.width = rangeValue + "%"; 
+        }
+
+        function calculateHue(value) {
+            if (value <= 25) {
+                // Blue to green transition
+                return 240 - (value * 2.4); // Hues from 240 (blue) to 120 (green)
+            } else if (value <= 50) {
+                // Green to yellow transition
+                return 120 + ((value - 25) * 2.4); // Hues from 120 (green) to 60 (yellow)
+            } else if (value <= 75) {
+                // Yellow to red transition
+                return 60 + ((value - 50) * 2.4); // Hues from 60 (yellow) to 0 (red)
+            } else {
+                // Red
+                return 0; // Hues around 0 (red)
+            }
+        }
+    </script>
+</body>
+</html>
