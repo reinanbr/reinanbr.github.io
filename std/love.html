@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Painel do Casal</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f5f5f5;
+      padding: 20px;
+    }
+
+    .input-section {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      width: 80%;
+      max-width: 600px;
+    }
+
+    .input-section h2 {
+      color: #e74c3c;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    .moment-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .moment-row input[type="date"] {
+      flex: 0 0 130px;
+    }
+
+    .moment-row input[type="text"] {
+      flex: 1;
+    }
+
+    button {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      display: block;
+      margin: 10px auto;
+    }
+
+    button:hover {
+      background-color: #c0392b;
+    }
+
+    .panel {
+      background-color: white;
+      width: 100%;
+      max-width: 794px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      position: relative;
+      display: none;
+      margin-bottom: 20px;
+      box-sizing: border-box;
+    }
+
+    .panel.printable {
+      display: block;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .title {
+      font-size: 28px;
+      color: #e74c3c;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #7f8c8d;
+    }
+
+    .couple-photo {
+      width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      background-color: #f0f0f0;
+    }
+
+    .couple-info {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+    }
+
+    .name {
+      font-size: 22px;
+      text-align: center;
+      padding: 12px;
+      background-color: #f9f9f9;
+      border-radius: 6px;
+      width: 45%;
+    }
+
+    .ampersand {
+      font-size: 30px;
+      align-self: center;
+      color: #e74c3c;
+    }
+
+    .song-section, .timeline-section {
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    .song-title, .timeline-title {
+      font-size: 20px;
+      color: #e74c3c;
+      margin-bottom: 8px;
+    }
+
+    .timeline-list {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .timeline-list li {
+      margin-bottom: 5px;
+    }
+
+    .time-together {
+      text-align: center;
+      font-size: 18px;
+      background-color: #e74c3c;
+      color: white;
+      padding: 12px;
+      border-radius: 6px;
+    }
+
+    .footer {
+      text-align: center;
+      font-style: italic;
+      color: #7f8c8d;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+
+    @media print {
+      body {
+        background-color: white;
+        padding: 0;
+      }
+
+      .input-section {
+        display: none;
+      }
+
+      .panel {
+        box-shadow: none;
+        margin: 0 auto;
+        padding: 20mm;
+        width: 100%;
+        max-width: 210mm;
+        page-break-after: always;
+      }
+
+      @page {
+        size: A4 portrait;
+        margin: 20mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="input-section">
+    <h2>Crie seu Painel do Casal</h2>
+
+    <div class="form-group">
+      <label for="name1">Nome da Pessoa 1:</label>
+      <input type="text" id="name1" placeholder="Digite o primeiro nome">
+    </div>
+
+    <div class="form-group">
+      <label for="name2">Nome da Pessoa 2:</label>
+      <input type="text" id="name2" placeholder="Digite o segundo nome">
+    </div>
+
+    <div class="form-group">
+      <label>Músicas do Casal:</label>
+      <div id="songsContainer">
+        <input type="text" class="song-input" placeholder="Digite o nome da música especial">
+      </div>
+      <button type="button" onclick="addSongInput()">+ Adicionar Música</button>
+    </div>
+
+    <div class="form-group">
+      <label for="startDate">Data de Início do Namoro:</label>
+      <input type="date" id="startDate">
+    </div>
+
+    <div class="form-group">
+      <label for="photoUpload">Foto do Casal:</label>
+      <input type="file" id="photoUpload" accept="image/*">
+    </div>
+
+    <div class="form-group">
+      <label>Linha do Tempo de Momentos Memoráveis:</label>
+      <div id="timelineInputs"></div>
+      <button type="button" onclick="addTimelineInput()">+ Adicionar Momento</button>
+    </div>
+
+    <button onclick="generatePanel()">Gerar Painel</button>
+    <button onclick="window.print()" style="margin-top: 10px; background-color: #3498db;">Imprimir Painel</button>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="header">
+      <div class="title">Nossa História</div>
+      <div class="subtitle">Um capítulo especial das nossas vidas</div>
+    </div>
+
+    <img id="panelPhoto" class="couple-photo" src="" alt="Foto do casal">
+
+    <div class="couple-info">
+      <div class="name" id="panelName1">Nome 1</div>
+      <div class="ampersand">&</div>
+      <div class="name" id="panelName2">Nome 2</div>
+    </div>
+
+    <div class="song-section">
+      <div class="song-title">Nossa Música</div>
+      <ul id="panelSong" class="timeline-list">
+        <li>Nome da música especial do casal</li>
+      </ul>
+    </div>
+
+    <div class="timeline-section">
+      <div class="timeline-title">Nossa Linha do Tempo</div>
+      <ul class="timeline-list" id="panelTimeline"></ul>
+    </div>
+
+    <div class="time-together" id="panelTimeTogether">
+      Juntos desde: 01/01/2020 (3 anos, 5 meses e 10 dias)
+    </div>
+
+    <div class="footer">Criado com amor para eternizar nosso relacionamento</div>
+  </div>
+
+  <script>
+    let uploadedPhotoUrl = '';
+    let timelineCount = 0;
+
+    document.getElementById('photoUpload').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          uploadedPhotoUrl = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function addTimelineInput() {
+      const container = document.getElementById('timelineInputs');
+      const row = document.createElement('div');
+      row.className = 'moment-row';
+      row.innerHTML = `
+        <input type="date" id="momentDate${timelineCount}">
+        <input type="text" id="momentText${timelineCount}" placeholder="Descrição do momento">
+      `;
+      container.appendChild(row);
+      timelineCount++;
+    }
+
+    function addSongInput() {
+      const container = document.getElementById('songsContainer');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'song-input';
+      input.placeholder = 'Digite o nome da música especial';
+      input.style.marginTop = '10px';
+      container.appendChild(input);
+    }
+
+    function generatePanel() {
+      const name1 = document.getElementById('name1').value || 'Nome 1';
+      const name2 = document.getElementById('name2').value || 'Nome 2';
+      const startDate = document.getElementById('startDate').value;
+
+      document.getElementById('panelName1').textContent = name1;
+      document.getElementById('panelName2').textContent = name2;
+
+      document.getElementById('panelPhoto').src = uploadedPhotoUrl || 'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23666" font-family="Arial" font-size="20" dy="10" text-anchor="middle" x="200" y="150"%3EFoto do Casal%3C/text%3E%3C/svg%3E';
+
+      // Lista de músicas
+      const songList = document.getElementById('panelSong');
+      songList.innerHTML = '';
+      const songInputs = document.querySelectorAll('.song-input');
+      let hasSongs = false;
+
+      songInputs.forEach(input => {
+        if (input.value.trim() !== '') {
+          const li = document.createElement('li');
+          li.textContent = input.value.trim();
+          songList.appendChild(li);
+          hasSongs = true;
+        }
+      });
+
+      if (!hasSongs) {
+        const li = document.createElement('li');
+        li.textContent = 'Nossa música especial';
+        songList.appendChild(li);
+      }
+
+      // Tempo juntos
+      let timeTogetherText = 'Juntos desde: Data não informada';
+      if (startDate) {
+        const start = new Date(startDate);
+        const today = new Date();
+
+        let years = today.getFullYear() - start.getFullYear();
+        let months = today.getMonth() - start.getMonth();
+        let days = today.getDate() - start.getDate();
+
+        if (days < 0) {
+          months--;
+          days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        }
+
+        if (months < 0) {
+          years--;
+          months += 12;
+        }
+
+        const formattedDate = start.toLocaleDateString('pt-BR');
+        timeTogetherText = `Juntos desde: ${formattedDate} (${years} ano${years !== 1 ? 's' : ''}, ${months} mês${months !== 1 ? 'es' : ''} e ${days} dia${days !== 1 ? 's' : ''})`;
+      }
+
+      document.getElementById('panelTimeTogether').textContent = timeTogetherText;
+
+      // Linha do tempo
+      const timelineList = document.getElementById('panelTimeline');
+      timelineList.innerHTML = '';
+      for (let i = 0; i < timelineCount; i++) {
+        const date = document.getElementById(`momentDate${i}`).value;
+        const text = document.getElementById(`momentText${i}`).value;
+        if (date && text) {
+          const li = document.createElement('li');
+          li.textContent = `${new Date(date).toLocaleDateString('pt-BR')}: ${text}`;
+          timelineList.appendChild(li);
+        }
+      }
+
+      document.getElementById('panel').classList.add('printable');
+    }
+
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('name1')) {
+        document.getElementById('name1').value = urlParams.get('name1');
+        document.getElementById('name2').value = urlParams.get('name2');
+        document.getElementById('startDate').value = urlParams.get('startDate');
+        generatePanel();
+      }
+    };
+  </script>
+</body>
+</html>

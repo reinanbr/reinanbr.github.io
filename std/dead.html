@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Contador de Vida</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 {
+      color: #00ff88;
+    }
+    label {
+      margin-top: 10px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      font-size: 1em;
+      border: none;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #00ff88;
+      cursor: pointer;
+      color: #111;
+    }
+    #resultado {
+      margin-top: 30px;
+      text-align: center;
+    }
+    .info {
+      font-size: 1.2em;
+      margin-top: 10px;
+    }
+    .contador {
+      font-size: 2em;
+      font-weight: bold;
+      color: #ff5555;
+      margin-top: 20px;
+    }
+    .input-group {
+      display: flex;
+      gap: 10px;
+    }
+    .input-group input {
+      width: 80px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Quanto Tempo de Vida?</h1>
+
+  <label>Data e hora de nascimento:</label><br/>
+  <input type="datetime-local" id="nascimento"><br/>
+
+  <label>Quanto tempo deseja viver?</label><br/>
+  <div class="input-group">
+    <input type="number" id="anos" placeholder="Anos" min="0">
+    <input type="number" id="meses" placeholder="Meses" min="0" max="11">
+    <input type="number" id="dias" placeholder="Dias" min="0" max="30">
+  </div>
+
+  <button onclick="calcular()">Calcular</button>
+
+  <div id="resultado"></div>
+
+  <script>
+    let intervalo;
+
+    function calcular() {
+      clearInterval(intervalo); // Limpa contador anterior
+
+      const nascimento = new Date(document.getElementById('nascimento').value);
+      const anos = parseInt(document.getElementById('anos').value) || 0;
+      const meses = parseInt(document.getElementById('meses').value) || 0;
+      const dias = parseInt(document.getElementById('dias').value) || 0;
+
+      if (isNaN(nascimento.getTime())) {
+        alert("Preencha a data de nascimento corretamente.");
+        return;
+      }
+
+      const morte = new Date(nascimento);
+      morte.setFullYear(morte.getFullYear() + anos);
+      morte.setMonth(morte.getMonth() + meses);
+      morte.setDate(morte.getDate() + dias);
+
+      const resultadoDiv = document.getElementById('resultado');
+      resultadoDiv.innerHTML = `
+        <div class="info">Você morrerá em: <strong>${morte.toLocaleString()}</strong></div>
+        <div class="contador" id="contador">Calculando...</div>
+      `;
+
+      function atualizarContador() {
+        const agora = new Date();
+        let restante = morte - agora;
+
+        if (restante <= 0) {
+          document.getElementById('contador').innerText = "Seu tempo acabou.";
+          clearInterval(intervalo);
+          return;
+        }
+
+        let segundos = Math.floor(restante / 1000);
+        let minutos = Math.floor(segundos / 60);
+        let horas = Math.floor(minutos / 60);
+        let diasTotal = Math.floor(horas / 24);
+
+        segundos %= 60;
+        minutos %= 60;
+        horas %= 24;
+
+        // Conversão em anos/meses/dias aproximados
+        const anosRest = Math.floor(diasTotal / 365.25);
+        const mesesRest = Math.floor((diasTotal % 365.25) / 30.44);
+        const diasRest = Math.floor((diasTotal % 365.25) % 30.44);
+
+        document.getElementById('contador').innerText =
+          `${anosRest} anos, ${mesesRest} meses, ${diasRest} dias, ${horas}h ${minutos}min ${segundos}s`;
+      }
+
+      atualizarContador(); // Primeira atualização
+      intervalo = setInterval(atualizarContador, 1000);
+    }
+  </script>
+</body>
+</html>
