@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Neurotípico vs Neurodiverso</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding:20px; max-width:800px; margin:auto; background:#eef2f7;}
+    h1{text-align:center;color:#333;}
+    .question{background:#fff;padding:10px;border-radius:8px;box-shadow:0 0 4px rgba(0,0,0,0.1);margin-bottom:10px;}
+    label{display:block;margin:4px 0;}
+    button{background:#007bff;color:white;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;margin-top:20px;font-size:16px;}
+    #resultado,#grafico{text-align:center;margin-top:30px;}
+    svg{width:300px;height:300px;display:block;margin:auto;}
+  </style>
+</head>
+<body>
+
+<h1>Neurotípico × Neurodiverso (50 perguntas)</h1>
+<form id="quizForm"><div id="perguntas"></div><button type="submit">Calcular Resultado</button></form>
+<div id="resultado"></div>
+<div id="grafico"></div>
+<button onclick="gerarPDF()">Gerar PDF</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+const { jsPDF } = window.jspdf;
+
+const perguntas = [
+  // Social (0–9)
+  "Tenho facilidade em interações sociais espontâneas?",
+  "Consigo interpretar expressões faciais com facilidade?",
+  "Gosto de socializar em grupo?",
+  "Entendo quando alguém está desconfortável?",
+  "Busco manter contato visual?",
+  "Compreendo normas sociais implícitas?",
+  "Se sinto excluído em grupo?",
+  "Reconheço mudanças sutis de humor nos outros?",
+  "Compartilho interesses espontaneamente?",
+  "Reajo adequadamente a saudação e despedidas?",
+  // Comunicação (10–19)
+  "Minha fala segue entonação emocional natural?",
+  "Uso gestos e expressões durante conversa?",
+  "Entendo ironia e piadas facilmente?",
+  "Consigo manter conversa sem perder o foco?",
+  "Ajusto a fala conforme o interlocutor?",
+  "Faço perguntas espontâneas?",
+  "Evito falar sobre o mesmo assunto repetidamente?",
+  "Respondo adequadamente quando perguntam algo?",
+  "Minha linguagem é figurada quando necessário?",
+  "Faço pausas naturais ao falar?",
+  // Atenção/Foco (20–29)
+  "Consigo manter atenção por longos períodos sem distração?",
+  "Não me distraio facilmente com estímulos externos?",
+  "Consigo terminar tarefas mesmo entediantes?",
+  "Organizo meu dia sem esquecer coisas?",
+  "Planejo memorizo compromissos com facilidade?",
+  "Consigo alternar foco conforme necessário?",
+  "Não sinto necessidade constante de estímulo?",
+  "Mantenho foco em conversas longas?",
+  "Concluo atividades mesmo pouco motivadoras?",
+  "Posso ficar parado concentrado por tempo prolongado?",
+  // Repetição/Interesse (30–39)
+  "Tenho interesses variados e diversificados?",
+  "Não me apego a rotinas rígidas?",
+  "Consigo mudar de hobby sem frustração?",
+  "Não repito ações rotineiramente sem perceber?",
+  "Sou flexível para mudar a ordem de tarefas?",
+  "Me entedio com atividades repetitivas?",
+  "Tenho hobbies diversos?",
+  "Não faço movimentos repetitivos inconscientes?",
+  "Adoto novos interesses facilmente?",
+  "Não me sinto ansioso ao mudar atividades?",
+  // Sensorial (40–49)
+  "Não me incomodo com ruídos altos?",
+  "A temperatura ambiente não me afeta muito?",
+  "Consigo comer sem restrições sensoriais?",
+  "Não evito roupas por causa do tecido?",
+  "Conforto físico é fácil de encontrar em objetos ao redor?",
+  "Não sinto desconforto com luzes fortes?",
+  "Não sou sensível a cheiros ou texturas comuns?",
+  "Não uso autostimulação específica (como girar mãos)?",
+  "Barulhos de trânsito não me perturbam?",
+  "Não evito lugares por estímulos sensoriais externos?"
+];
+
+const areas = ["Social","Comunicação","Atenção/Foco","Interesse/Repetição","Sensibilidade"];
+const cores = ['#e74c3c','#3498db','#2ecc71','#f1c40f','#9b59b6'];
+
+const container = document.getElementById('perguntas');
+perguntas.forEach((txt,i)=> {
+  const div=document.createElement('div');div.className='question';
+  div.innerHTML=`<p><strong>${i+1}. ${txt}</strong></p>
+    <label><input type="radio" name="q${i}" value="2" required> Sempre/Sim</label>
+    <label><input type="radio" name="q${i}" value="1"> Às vezes</label>
+    <label><input type="radio" name="q${i}" value="0"> Raramente/Não</label>`;
+  container.appendChild(div);
+});
+
+document.getElementById('quizForm').addEventListener('submit',e=>{
+  e.preventDefault();
+
+  const pontuacoes = [0,0,0,0,0];
+  for(let i=0;i<50;i++){
+    const r=document.querySelector(`input[name="q${i}"]:checked`);
+    if(r){ pontuacoes[Math.floor(i/10)] += parseInt(r.value); }
+  }
+
+  const totalPontuado = pontuacoes.reduce((s,v)=>s+v,0);
+  const percN = Math.round((totalPontuado / 100) * 100); // até 100 pontos possíveis
+  const percD = 100 - percN;
+
+  const html = `
+    <h2>Resultado global:</h2>
+    <p><strong>Neurodiverso:</strong> ${percD}%</p>
+    <p><strong>Neurotípico:</strong> ${percN}%</p>
+    <h3>Detalhes por área:</h3>
+    <ul style="list-style:none;padding:0;">
+      ${pontuacoes.map((p,i) => {
+        const v = Math.round((p / 20) * 100);
+        return `<li><strong>${areas[i]}:</strong> ${v}%</li>`;
+      }).join('')}
+    </ul>
+  `;
+
+  document.getElementById('resultado').innerHTML = html;
+
+  const graf = [
+    { label: 'Neurodiverso', value: percD, color: '#e74c3c' },
+    { label: 'Neurotípico', value: percN, color: '#3498db' }
+  ];
+
+  // adiciona áreas específicas no gráfico
+  pontuacoes.forEach((p, i) => {
+    const v = Math.round((p / 20) * 100);
+    graf.push({ label: areas[i], value: v, color: cores[i] });
+  });
+
+  desenharGrafico(graf);
+});
+
+function desenharGrafico(dados){
+  const total = dados.reduce((s,d)=>s+d.value,0);
+  let angIni = 0;
+  const cx = 150, cy = 150, r = 100;
+  let svg = `<svg viewBox="0 0 300 300">`;
+  dados.forEach(d=>{
+    const ang = (d.value/total)*2*Math.PI;
+    const x1 = cx + r * Math.cos(angIni), y1 = cy + r * Math.sin(angIni);
+    const x2 = cx + r * Math.cos(angIni + ang), y2 = cy + r * Math.sin(angIni + ang);
+    const ga = ang > Math.PI ? 1 : 0;
+    svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${ga},1 ${x2},${y2} Z" fill="${d.color}"/>`;
+    const mid = angIni + ang/2;
+    const lx = cx + (r / 1.5) * Math.cos(mid), ly = cy + (r / 1.5) * Math.sin(mid);
+    svg += `<text x="${lx}" y="${ly}" text-anchor="middle" font-size="10" fill="#fff">${d.label}</text>`;
+    angIni += ang;
+  });
+  svg += '</svg>';
+  document.getElementById('grafico').innerHTML = svg;
+}
+
+function gerarPDF(){
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("Neurotípico vs Neurodiverso", 20, 20);
+  let y = 40;
+  const pontuacoes = document.querySelectorAll("#resultado ul li");
+  pontuacoes.forEach((li, i) => {
+    doc.setFontSize(12);
+    doc.text(li.textContent, 20, y);
+    y += 10;
+  });
+  const svgEl = document.querySelector('svg');
+  const svgData = new XMLSerializer().serializeToString(svgEl);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  const blob = new Blob([svgData], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  img.onload = function(){
+    canvas.width = 300; canvas.height = 300;
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const imgData = canvas.toDataURL("image/png");
+    doc.addImage(imgData, 'PNG', 70, y, 60, 60);
+    doc.save("neuro_diversidade.pdf");
+  };
+  img.src = url;
+}
+</script>
+</body>
+</html>

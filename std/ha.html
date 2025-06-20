@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Altas Habilidades - Diagnóstico</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #eef2f7;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #2b4c6f;
+    }
+    .question {
+      margin-bottom: 15px;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin: 4px 0;
+    }
+    button {
+      padding: 10px 15px;
+      background: #2b4c6f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #resultado, #grafico {
+      margin-top: 30px;
+      text-align: center;
+    }
+    svg {
+      width: 300px;
+      height: 300px;
+      margin: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Questionário de Altas Habilidades (50 questões)</h1>
+<form id="quizForm">
+  <div id="perguntas"></div>
+  <button type="submit">Calcular Resultado</button>
+</form>
+
+<div id="resultado"></div>
+<div id="grafico"></div>
+<button onclick="gerarPDF()">Gerar PDF</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+const { jsPDF } = window.jspdf;
+
+const perguntas = [
+  // 0-9: Lógica/Matemática
+  "Você gosta de resolver enigmas e desafios matemáticos?",
+  "Você percebe padrões com facilidade?",
+  "Você aprende matemática com rapidez?",
+  "Você gosta de jogos de lógica?",
+  "Você consegue fazer cálculos mentais com facilidade?",
+  "Você resolve problemas complexos sozinho?",
+  "Você gosta de programar ou usar computadores para resolver problemas?",
+  "Você entende conceitos matemáticos abstratos com facilidade?",
+  "Você faz conexões lógicas entre diferentes ideias?",
+  "Você gosta de organizar dados e informações?",
+  // 10-19: Linguagem/Comunicação
+  "Você tem vocabulário avançado para sua idade?",
+  "Você gosta de escrever histórias ou textos criativos?",
+  "Você tem facilidade em aprender novos idiomas?",
+  "Você se comunica de forma clara e eficaz?",
+  "Você consegue argumentar com lógica?",
+  "Você costuma usar metáforas ou figuras de linguagem?",
+  "Você gosta de ler por prazer?",
+  "Você consegue convencer pessoas com suas ideias?",
+  "Você entende piadas e ironias com facilidade?",
+  "Você já foi elogiado por sua forma de se expressar?",
+  // 20-29: Criatividade/Artes
+  "Você cria desenhos, músicas ou histórias frequentemente?",
+  "Você gosta de inventar coisas?",
+  "Você tem boas ideias para resolver problemas?",
+  "Você se destaca em atividades artísticas?",
+  "Você pensa em soluções diferentes das convencionais?",
+  "Você tem imaginação fértil?",
+  "Você gosta de improvisar?",
+  "Você participa de projetos criativos?",
+  "Você tem interesse por design, moda ou arquitetura?",
+  "Você costuma ter ideias antes dos outros?",
+  // 30-39: Aprendizagem/Raciocínio
+  "Você aprende novos conteúdos com facilidade?",
+  "Você entende conceitos avançados para sua idade?",
+  "Você aprende sozinho frequentemente?",
+  "Você gosta de estudar temas complexos?",
+  "Você memoriza informações com facilidade?",
+  "Você se aprofunda muito em temas de interesse?",
+  "Você se destaca em provas e testes?",
+  "Você é autodidata em algum assunto?",
+  "Você já ensinou algo a colegas ou professores?",
+  "Você associa conteúdos de áreas diferentes?",
+  // 40-49: Socioemocional
+  "Você se sente diferente da maioria das pessoas?",
+  "Você se preocupa com questões sociais ou éticas?",
+  "Você sente emoções com intensidade?",
+  "Você percebe os sentimentos dos outros com facilidade?",
+  "Você busca sentido profundo nas coisas?",
+  "Você é muito crítico consigo mesmo?",
+  "Você tem senso de justiça forte?",
+  "Você é muito perfeccionista?",
+  "Você sente frustração com facilidade?",
+  "Você pensa muito sobre o futuro ou o sentido da vida?"
+];
+
+const areas = ['Lógica/Matemática', 'Linguagem', 'Criatividade', 'Aprendizagem', 'Socioemocional'];
+const pontuacoes = [0, 0, 0, 0, 0];
+
+const container = document.getElementById('perguntas');
+perguntas.forEach((pergunta, index) => {
+  const div = document.createElement('div');
+  div.classList.add('question');
+  div.innerHTML = `
+    <p><strong>${index + 1}. ${pergunta}</strong></p>
+    <label><input type="radio" name="q${index}" value="2" required> Sim</label>
+    <label><input type="radio" name="q${index}" value="1"> Às vezes</label>
+    <label><input type="radio" name="q${index}" value="0"> Não</label>
+  `;
+  container.appendChild(div);
+});
+
+document.getElementById('quizForm').addEventListener('submit', function(event) {
+  event.preventDefault();
+  pontuacoes.fill(0);
+
+  for (let i = 0; i < perguntas.length; i++) {
+    const resposta = document.querySelector(`input[name="q${i}"]:checked`);
+    if (resposta) {
+      const areaIndex = Math.floor(i / 10);
+      pontuacoes[areaIndex] += parseInt(resposta.value);
+    }
+  }
+
+  let resultado = '';
+  let cores = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
+  const grafico = [];
+
+  resultado += `<h2>Resultados por área:</h2><ul style="list-style:none;padding:0;">`;
+  pontuacoes.forEach((pontos, i) => {
+    const porcentagem = Math.round((pontos / 20) * 100);
+    resultado += `<li><strong>${areas[i]}</strong>: ${porcentagem}%</li>`;
+    grafico.push({ label: areas[i], value: porcentagem, color: cores[i] });
+  });
+  resultado += `</ul>`;
+  document.getElementById('resultado').innerHTML = resultado;
+
+  desenharGrafico(grafico);
+});
+
+function desenharGrafico(dados) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  let total = dados.reduce((sum, d) => sum + d.value, 0);
+  let anguloInicial = 0;
+
+  let svg = `<svg viewBox="0 0 300 300">`;
+  const cx = 150, cy = 150, r = 100;
+
+  dados.forEach(d => {
+    const angulo = (d.value / total) * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(anguloInicial);
+    const y1 = cy + r * Math.sin(anguloInicial);
+    const x2 = cx + r * Math.cos(anguloInicial + angulo);
+    const y2 = cy + r * Math.sin(anguloInicial + angulo);
+    const grandeArco = angulo > Math.PI ? 1 : 0;
+
+    svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${grandeArco},1 ${x2},${y2} Z" fill="${d.color}"/>`;
+    anguloInicial += angulo;
+  });
+
+  svg += `</svg>`;
+  document.getElementById('grafico').innerHTML = svg;
+}
+
+function gerarPDF() {
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("Resultado - Altas Habilidades", 20, 20);
+
+  let y = 40;
+  pontuacoes.forEach((p, i) => {
+    const perc = Math.round((p / 20) * 100);
+    doc.setFontSize(12);
+    doc.text(`${areas[i]}: ${perc}%`, 20, y);
+    y += 10;
+  });
+
+  const svg = document.querySelector('svg');
+  const svgData = new XMLSerializer().serializeToString(svg);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  const svgBlob = new Blob([svgData], {type:"image/svg+xml;charset=utf-8"});
+  const url = URL.createObjectURL(svgBlob);
+  img.onload = function () {
+    canvas.width = 300;
+    canvas.height = 300;
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const imgData = canvas.toDataURL("image/png");
+    doc.addImage(imgData, 'PNG', 70, y, 60, 60);
+    doc.save("resultado_altas_habilidades.pdf");
+  };
+  img.src = url;
+}
+</script>
+
+</body>
+</html>

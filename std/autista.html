@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Questionário de Autismo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f4f6f9;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .question {
+      background: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.1);
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      margin: 4px 0;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #resultado, #grafico {
+      margin-top: 30px;
+      text-align: center;
+    }
+    svg {
+      width: 300px;
+      height: 300px;
+      margin: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Questionário de Autismo (50 questões)</h1>
+<form id="quizForm">
+  <div id="perguntas"></div>
+  <button type="submit">Calcular Resultado</button>
+</form>
+
+<div id="resultado"></div>
+<div id="grafico"></div>
+<button onclick="gerarPDF()">Gerar PDF</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+const { jsPDF } = window.jspdf;
+
+const perguntas = [
+// Interação social (0–9)
+"Evita contato visual?",
+"Tem dificuldade para fazer amizades?",
+"Prefere brincar sozinho?",
+"Demonstra pouco interesse em pessoas?",
+"Não responde quando chamado pelo nome?",
+"Tem dificuldade para entender sentimentos alheios?",
+"Evita toques físicos, como abraços?",
+"Não compartilha interesses com os outros?",
+"Não busca consolo quando machucado?",
+"Ignora pessoas próximas em situações sociais?",
+// Comunicação (10–19)
+"Tem atraso na fala?",
+"Repete palavras ou frases (ecolalia)?",
+"Fala com tom de voz incomum (robótico ou cantado)?",
+"Tem dificuldade para manter uma conversa?",
+"Não entende gestos como apontar?",
+"Fala de forma excessivamente literal?",
+"Evita usar linguagem corporal?",
+"Fala muito sobre um mesmo tema?",
+"Tem dificuldade em iniciar conversas?",
+"Não responde adequadamente a perguntas simples?",
+// Comportamentos repetitivos (20–29)
+"Faz movimentos repetitivos como balançar as mãos?",
+"Alinha objetos excessivamente?",
+"Segue rotinas rígidas?",
+"Fica muito incomodado com pequenas mudanças?",
+"Faz barulhos repetitivos (ruídos, grunhidos)?",
+"Mostra comportamentos autoestimulantes?",
+"Fica fascinado por partes de objetos?",
+"Costuma repetir as mesmas ações muitas vezes?",
+"Tem interesses por horários ou sequências fixas?",
+"Tem crises quando uma rotina é quebrada?",
+// Interesses restritos (30–39)
+"Tem fascínio intenso por temas específicos?",
+"Fala muito sobre um único assunto?",
+"Não se interessa por brincadeiras simbólicas?",
+"Tem interesse incomum por objetos?",
+"Assiste as mesmas coisas repetidamente?",
+"Passa muito tempo sozinho fazendo a mesma atividade?",
+"Demonstra resistência a tentar novos hobbies?",
+"Ignora pessoas enquanto foca no interesse?",
+"Demonstra conhecimento excessivo sobre temas restritos?",
+"Fica frustrado quando afastado do interesse favorito?",
+// Sensibilidade sensorial (40–49)
+"Reage mal a sons altos?",
+"Evita certos tipos de tecidos ou roupas?",
+"Tem preferência por certos cheiros ou gostos?",
+"Mostra medo exagerado de barulhos comuns?",
+"Encosta repetidamente em superfícies ou objetos?",
+"Evita lugares com muita luz ou som?",
+"Reage exageradamente a cheiros?",
+"Gosta de cheirar objetos repetidamente?",
+"Fica muito tempo olhando luzes ou objetos giratórios?",
+"Demonstra hipersensibilidade ao toque?"
+];
+
+const areas = [
+  "Interação Social",
+  "Comunicação",
+  "Comportamentos Repetitivos",
+  "Interesses Restritos",
+  "Sensibilidade Sensorial"
+];
+const pontuacoes = [0, 0, 0, 0, 0];
+
+const container = document.getElementById('perguntas');
+perguntas.forEach((pergunta, index) => {
+  const div = document.createElement('div');
+  div.classList.add('question');
+  div.innerHTML = `
+    <p><strong>${index + 1}. ${pergunta}</strong></p>
+    <label><input type="radio" name="q${index}" value="2" required> Sim</label>
+    <label><input type="radio" name="q${index}" value="1"> Às vezes</label>
+    <label><input type="radio" name="q${index}" value="0"> Não</label>
+  `;
+  container.appendChild(div);
+});
+
+document.getElementById('quizForm').addEventListener('submit', function(event) {
+  event.preventDefault();
+  pontuacoes.fill(0);
+
+  for (let i = 0; i < perguntas.length; i++) {
+    const resposta = document.querySelector(`input[name="q${i}"]:checked`);
+    if (resposta) {
+      const areaIndex = Math.floor(i / 10);
+      pontuacoes[areaIndex] += parseInt(resposta.value);
+    }
+  }
+
+  let resultado = '<h2>Probabilidade por área:</h2><ul style="list-style:none;padding:0;">';
+  let cores = ['#e74c3c', '#2980b9', '#2ecc71', '#f1c40f', '#9b59b6'];
+  const grafico = [];
+
+  pontuacoes.forEach((pontos, i) => {
+    const porcentagem = Math.round((pontos / 20) * 100);
+    resultado += `<li><strong>${areas[i]}</strong>: ${porcentagem}%</li>`;
+    grafico.push({ label: areas[i], value: porcentagem, color: cores[i] });
+  });
+
+  resultado += `</ul>`;
+  document.getElementById('resultado').innerHTML = resultado;
+  desenharGrafico(grafico);
+});
+
+function desenharGrafico(dados) {
+  let total = dados.reduce((sum, d) => sum + d.value, 0);
+  let anguloInicial = 0;
+  const cx = 150, cy = 150, r = 100;
+  let svg = `<svg viewBox="0 0 300 300">`;
+
+  dados.forEach(d => {
+    const angulo = (d.value / total) * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(anguloInicial);
+    const y1 = cy + r * Math.sin(anguloInicial);
+    const x2 = cx + r * Math.cos(anguloInicial + angulo);
+    const y2 = cy + r * Math.sin(anguloInicial + angulo);
+    const grandeArco = angulo > Math.PI ? 1 : 0;
+
+    svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${grandeArco},1 ${x2},${y2} Z" fill="${d.color}"/>`;
+
+    const anguloMeio = anguloInicial + angulo / 2;
+    const labelX = cx + (r / 1.5) * Math.cos(anguloMeio);
+    const labelY = cy + (r / 1.5) * Math.sin(anguloMeio);
+    svg += `<text x="${labelX}" y="${labelY}" text-anchor="middle" font-size="10" fill="white">${d.label}</text>`;
+
+    anguloInicial += angulo;
+  });
+
+  svg += `</svg>`;
+  document.getElementById('grafico').innerHTML = svg;
+}
+
+function gerarPDF() {
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("Resultado - Questionário de Autismo", 20, 20);
+
+  let y = 40;
+  pontuacoes.forEach((p, i) => {
+    const perc = Math.round((p / 20) * 100);
+    doc.setFontSize(12);
+    doc.text(`${areas[i]}: ${perc}%`, 20, y);
+    y += 10;
+  });
+
+  const svg = document.querySelector('svg');
+  const svgData = new XMLSerializer().serializeToString(svg);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  const svgBlob = new Blob([svgData], {type:"image/svg+xml;charset=utf-8"});
+  const url = URL.createObjectURL(svgBlob);
+
+  img.onload = function () {
+    canvas.width = 300;
+    canvas.height = 300;
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const imgData = canvas.toDataURL("image/png");
+    doc.addImage(imgData, 'PNG', 70, y, 60, 60);
+    doc.save("resultado_autismo.pdf");
+  };
+  img.src = url;
+}
+</script>
+
+</body>
+</html>
