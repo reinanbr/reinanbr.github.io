@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouncy Ball Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <title>Bouncing Ball Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        #game-container {
+            text-align: center;
+            position: relative;
+        }
+        #score-display {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+        }
+        #instructions {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score-display">Score: 0</div>
+        <div id="instructions">Use arrow keys to move | Jump with Space</div>
+        <div id="game-canvas"></div>
+    </div>
+
+    <script>
+        let ball;
+        let platforms = [];
+        let coins = [];
+        let obstacles = [];
+        let score = 0;
+        let gravity = 0.5;
+        let gameStarted = false;
+        let gameOver = false;
+        let backgroundImg;
+        let bounceSound;
+        let coinSound;
+        let gameMusic;
+        let particleSystems = [];
+
+        function preload() {
+            // These would ideally be loaded from actual URLs
+            backgroundImg = loadImage('https://images.unsplash.com/photo-1428908728789-d2de25dbd4e2?w=800');
+        }
+
+        function setup() {
+            let canvas = createCanvas(800, 500);
+            canvas.parent('game-canvas');
+            
+            // Initialize ball
+            ball = {
+                x: width/2,
+                y: height/2,
+                diameter: 40,
+                velX: 0,
+                velY: 0,
+                bouncePower: 12,
+                speed: 5,
+                color: [255, 105, 180] // Pink
+            };
+            
+            // Create floor platform
+            platforms.push({
+                x: 0,
+                y: height - 20,
+                width: width,
+                height: 30,
+                color: [50, 205, 50] // Lime green
+            });
+            
+            // Create some floating platforms
+            platforms.push({
+                x: 100,
+                y: 350,
+                width: 150,
+                height: 20,
+                color: [70, 130, 180] // Steel blue
+            });
+            
+            platforms.push({
+                x: 350,
+                y: 250,
+                width: 150,
+                height: 20,
+                color: [70, 130, 180]
+            });
+            
+            platforms.push({
+                x: 600,
+                y: 350,
+                width: 150,
+                height: 20,
+                color: [70, 130, 180] 
+            });
+            
+            // Create coins
+            for (let i = 0; i < 10; i++) {
+                coins.push({
+                    x: random(50, width - 50),
+                    y: random(50, height - 100),
+                    diameter: 25,
+                    collected: false,
+                    rotation: 0,
+                    bobOffset: random(0, TWO_PI)
+                });
+            }
+            
+            // Create some obstacles
+            for (let i = 0; i < 5; i++) {
+                obstacles.push({
+                    x: random(width),
+                    y: random(height/2, height - 50),
+                    width: random(30, 70),
+                    height: random(30, 70),
+                    color: [220, 20, 60] // Crimson
+                });
+            }
+            
+            // Start game for mobile devices
+            document.addEventListener('touchstart', function() {
+                if (!gameStarted) startGame();
+                else jumpBall();
+            });
+        }
+
+        function startGame() {
+            gameStarted = true;
+            document.getElementById('instructions').style.display = 'none';
+        }
+
+        function draw() {
+            if (!gameStarted) {
+                showStartScreen();
+                return;
+            }
+            
+            if (gameOver) {
+                return;
+            }
+            
+            // Draw background
+            if (backgroundImg) {
+                image(backgroundImg, 0, 0, width, height);
+            } else {
+                background(30, 144, 255); // Dodger blue fallback
+            }
+            
+            // Draw platforms
+            for (let platform of platforms) {
+                fill(platform.color);
+                rect(platform.x, platform.y, platform.width, platform.height);
+            }
+            
+            // Draw coins
+            for (let coin of coins) {
+                if (!coin.collected) {
+                    push();
+                    translate(coin.x, coin.y);
+                    rotate(coin.rotation);
+                    fill(255, 215, 0); // Gold
+                    ellipse(0, 0 + sin(frameCount * 0.1 + coin.bobOffset) * 5, coin.diameter, coin.diameter);
+                    fill(255, 255, 0);
+                    ellipse(0, 0 + sin(frameCount * 0.1 + coin.bobOffset) * 5, coin.diameter - 10, coin.diameter - 10);
+                    pop();
+                    
+                    coin.rotation += 0.05;
+                }
+            }
+            
+            // Draw obstacles
+            for (let obstacle of obstacles) {
+                fill(obstacle.color);
+                rect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            }
+            
+            // Handle input
+            handleInput();
+            
+            // Apply physics
+            applyPhysics();
+            
+            // Check collisions
+            checkCollisions();
+            
+            // Update score
+            document.getElementById('score-display').textContent = `Score: ${score}`;
+            
+            // Draw ball
+            drawBall();
+            
+            // Draw particles
+            drawParticles();
+        }
+
+        function showStartScreen() {
+            background(30, 144, 255);
+            fill(255);
+            textSize(32);
+            textAlign(CENTER, CENTER);
+            text("Bouncy Ball Game", width/2, height/2 - 50);
+            textSize(20);
+            text("Click or tap to start", width/2, height/2);
+            textSize(16);
+            text("Use arrow keys to move", width/2, height/2 + 40);
+            text("Space to jump", width/2, height/2 + 70);
+        }
+
+        function handleInput() {
+            ball.velX = 0;
+            
+            // Keyboard controls
+            if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) { // A key
+                ball.velX = -ball.speed;
+            }
+            if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) { // D key
+                ball.velX = ball.speed;
+            }
+        }
+
+        function applyPhysics() {
+            // Apply gravity
+            ball.velY += gravity;
+            
+            // Update position
+            ball.x += ball.velX;
+            ball.y += ball.velY;
+            
+            // Apply damping
+            ball.velX *= 0.95;
+            
+            // Screen boundaries
+            ball.x = constrain(ball.x, ball.diameter/2, width - ball.diameter/2);
+            
+            // Game over if falls off bottom
+            if (ball.y > height + ball.diameter) {
+                gameOver = true;
+                showGameOver();
+            }
+        }
+
+        function jumpBall() {
+            if (ball.velY > -1 && ball.velY < 1) { // Only allow jump when vertically stable-ish
+                ball.velY = -ball.bouncePower;
+                
+                // Add particles at bottom of ball
+                createParticles(ball.x, ball.y + ball.diameter/2 - 5);
+            }
+        }
+
+        function keyPressed() {
+            if (key === ' ' || keyCode === 32 || keyCode === UP_ARROW) {
+                jumpBall();
+            }
+            
+            if ((key === 'r' || key === 'R') && gameOver) {
+                resetGame();
+            }
+        }
+
+        function checkCollisions() {
+            // Platform collisions
+            let onPlatform = false;
+            for (let platform of platforms) {
+                if (collideRectCircle(
+                    platform.x, platform.y, platform.width, platform.height,
+                    ball.x, ball.y, ball.diameter
+                ) && ball.velY > 0 && ball.y + ball.diameter/2 < platform.y + 20) {
+                    ball.y = platform.y - ball.diameter/2;
+                    ball.velY = 0;
+                    onPlatform = true;
+                    ball.velX *= 0.8; // Friction
+                    
+                    // Add particles when landing
+                    if (Math.abs(ball.velY) > 5) {
+                        createParticles(ball.x, ball.y + ball.diameter/2 - 5);
+                    }
+                }
+            }
+            
+            // Coin collisions
+            for (let coin of coins) {
+                if (!coin.collected && collideCircleCircle(
+                    ball.x, ball.y, ball.diameter,
+                    coin.x, coin.y + sin(frameCount * 0.1 + coin.bobOffset) * 5, coin.diameter
+                )) {
+                    coin.collected = true;
+                    score += 10;
+                    
+                    // Create explosion effect
+                    createCoinParticles(coin.x, coin.y);
+                }
+            }
+            
+            // Obstacle collisions
+            for (let obstacle of obstacles) {
+                if (collideRectCircle(
+                    obstacle.x, obstacle.y, obstacle.width, obstacle.height,
+                    ball.x, ball.y, ball.diameter
+                )) {
+                    // Calculate bounce direction
+                    let closestX = constrain(ball.x, obstacle.x, obstacle.x + obstacle.width);
+                    let closestY = constrain(ball.y, obstacle.y, obstacle.y + obstacle.height);
+                    
+                    let dx = ball.x - closestX;
+                    let dy = ball.y - closestY;
+                    let distance = sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < ball.diameter/2) {
+                        // Push ball out of obstacle
+                        let overlap = ball.diameter/2 - distance;
+                        ball.x += overlap * dx / distance;
+                        ball.y += overlap * dy / distance;
+                        
+                        // Bounce physics
+                        let dotProduct = ball.velX * dx + ball.velY * dy;
+                        if (dotProduct > 0) { // Only bounce if moving toward obstacle
+                            let bounceFactor = -0.7;
+                            ball.velX += dx * bounceFactor * (abs(ball.velX) + abs(ball.velY)) / distance;
+                            ball.velY += dy * bounceFactor * (abs(ball.velX) + abs(ball.velY)) / distance;
+                        }
+                        
+                        createParticles(ball.x + dx, ball.y + dy);
+                    }
+                }
+            }
+        }
+
+        function drawBall() {
+            fill(ball.color);
+            noStroke();
+            ellipse(ball.x, ball.y, ball.diameter, ball.diameter);
+            
+            // Add highlight
+            fill(255, 255, 255, 100);
+            ellipse(ball.x - ball.diameter/6, ball.y - ball.diameter/6, ball.diameter/4, ball.diameter/4);
+            
+            // Add shadow
+            fill(0, 0, 0, 20);
+            ellipse(ball.x, ball.y + ball.diameter/3, ball.diameter * 0.8, ball.diameter/5);
+        }
+
+        function createParticles(x, y) {
+            let particleCount = 10;
+            for (let i = 0; i < particleCount; i++) {
+                particleSystems.push({
+                    x: x,
+                    y: y,
+                    diameter: random(5, 12),
+                    velX: random(-3, 3),
+                    velY: random(-5, 0),
+                    gravity: 0.2,
+                    lifetime: random(20, 50),
+                    color: [
+                        random(ball.color[0] - 30, ball.color[0] + 30),
+                        random(ball.color[1] - 30, ball.color[1] + 30),
+                        random(ball.color[2] - 30, ball.color[2] + 30)
+                    ],
+                    alpha: 255
+                });
+            }
+        }
+
+        function createCoinParticles(x, y) {
+            let particleCount = 15;
+            for (let i = 0; i < particleCount; i++) {
+                particleSystems.push({
+                    x: x,
+                    y: y,
+                    diameter: random(3, 8),
+                    velX: random(-4, 4),
+                    velY: random(-4, 4),
+                    gravity: 0.1,
+                    lifetime: random(30, 70),
+                    color: [255, random(150, 215), random(0, 100)],
+                    alpha: 255
+                });
+            }
+        }
+
+        function drawParticles() {
+            for (let i = particleSystems.length - 1; i >= 0; i--) {
+                let p = particleSystems[i];
+                
+                fill(p.color[0], p.color[1], p.color[2], p.alpha);
+                noStroke();
+                ellipse(p.x, p.y, p.diameter, p.diameter);
+                
+                // Update particle
+                p.x += p.velX;
+                p.y += p.velY;
+                p.velY += p.gravity;
+                p.lifetime--;
+                p.alpha -= 5;
+                
+                // Remove dead particles
+                if (p.lifetime <= 0 || p.alpha <= 0) {
+                    particleSystems.splice(i, 1);
+                }
+            }
+        }
+
+        function showGameOver() {
+            noLoop(); // Stop the draw loop
+            background(0, 0, 0, 150);
+            fill(255);
+            textSize(32);
+            textAlign(CENTER, CENTER);
+            text("Game Over", width/2, height/2 - 30);
+            textSize(24);
+            text(`Final Score: ${score}`, width/2, height/2 + 20);
+            textSize(18);
+            text("Press R to restart", width/2, height/2 + 60);
+        }
+
+        function resetGame() {
+            // Reset game state
+            score = 0;
+            gameOver = false;
+            gameStarted = true;
+            particleSystems = [];
+            
+            // Reset ball
+            ball.x = width/2;
+            ball.y = height/2;
+            ball.velX = 0;
+            ball.velY = 0;
+            
+            // Reset coins
+            for (let coin of coins) {
+                coin.collected = false;
+                coin.x = random(50, width - 50);
+                coin.y = random(50, height - 100);
+            }
+            
+            loop(); // Restart the draw loop
+        }
+
+        function collideRectCircle(rx, ry, rw, rh, cx, cy, diameter) {
+            let testX = cx;
+            let testY = cy;
+            let radius = diameter/2;
+
+            if (cx < rx) testX = rx; // left edge
+            else if (cx > rx + rw) testX = rx + rw; // right edge
+
+            if (cy < ry) testY = ry; // top edge
+            else if (cy > ry + rh) testY = ry + rh; // bottom edge
+
+            let distX = cx - testX;
+            let distY = cy - testY;
+            let distance = sqrt((distX * distX) + (distY * distY));
+
+            return distance <= radius;
+        }
+
+        function collideCircleCircle(x1, y1, d1, x2, y2, d2) {
+            let distX = x1 - x2;
+            let distY = y1 - y2;
+            let distance = sqrt((distX * distX) + (distY * distY));
+            return distance <= (d1/2 + d2/2);
+        }
+    </script>
+</body>
+</html>

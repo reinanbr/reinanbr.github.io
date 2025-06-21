@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Terra-Lua 3D</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        canvas {
+            display: block;
+        }
+        .info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 0 5px 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0d62c9;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">Sistema Terra-Lua 3D • Arraste para mover • Scroll para zoom</div>
+    <div class="controls">
+        <p id="infoAngle">Angle Y: 0, Angle X: 0, Angle Z: 0</p>
+        <p id="infoPosition">Posição: X: 0, Y: 0, Z: 0</p>
+        <button id="toggleRotation">Pausar Rotação</button>
+        <button id="toggleLight">Alternar Sol</button>
+        <button id="toggleClouds">Mostrar/Ocultar Nuvens</button>
+        <button id="toggleMoon">Mostrar/Ocultar Lua</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script>
+        // Cena
+        const scene = new THREE.Scene();
+        
+        // Camera
+        const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 10000);
+        camera.position.set(0, 2, 15);
+
+        // Free-fly controls (keyboard and mouse look)
+     
+
+        // Update
+        // Renderizador
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        
+        // Controles de órbita
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 5;
+        controls.maxDistance = 50;
+        
+        // TEXTURAS (todas carregadas de forma assíncrona)
+        const textureLoader = new THREE.TextureLoader();
+        
+        // Nova textura da Terra (mais detalhada)
+        const earthTexture = textureLoader.load('8k_earth_daymap.jpg');
+  
+        const earthNight = textureLoader.load('8k_earth_nightmap.jpg');
+        const earthSpec = textureLoader.load('8k_earth_specular_map.tif');
+        const cloudTexture = textureLoader.load('8k_earth_clouds.jpg');
+        const moonTexture = textureLoader.load('8k_moon.jpg');
+        const starTexture = textureLoader.load('8k_stars.jpg');
+        const milkWay = textureLoader.load('8k_stars_milky_way.jpg');
+        const stars = textureLoader.load('8k_stars.jpg');
+        const rocketTexture = textureLoader.load('rocket.png');
+        const sunMaterials = {
+            surfaceMaterial: '8k_sun.jpg',
+        }
+        // Sistema de estrelas CORRIGIDO (agora funcional)
+
+
+        // ======================
+        // STARFIELD BACKGROUND
+        // ======================
+        const createStarfield = () => {
+            const geometry = new THREE.BufferGeometry();
+            const material = new THREE.PointsMaterial({
+                size: 0.25,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9
+            });
+
+            const starCount = 50000;
+            const positions = new Float32Array(starCount * 3);
+            const colors = new Float32Array(starCount * 3);
+            const radius = 2000;
+
+            for (let i = 0; i < starCount; i++) {
+                // Spherical distribution
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = radius * Math.cbrt(Math.random());
+
+                positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = r * Math.cos(phi);
+
+                // Color variations
+                if (Math.random() < 0.1) {
+                    // Colored stars (red, blue, yellow)
+                    const colorType = Math.floor(Math.random() * 3);
+                    if (colorType === 0) {
+                        colors[i * 3] = 0.8; colors[i * 3 + 1] = 0.3; colors[i * 3 + 2] = 0.3; // Red
+                    } else if (colorType === 1) {
+                        colors[i * 3] = 0.3; colors[i * 3 + 1] = 0.3; colors[i * 3 + 2] = 0.8; // Blue
+                    } else {
+                        colors[i * 3] = 0.8; colors[i * 3 + 1] = 0.8; colors[i * 3 + 2] = 0.3; // Yellow
+                    }
+                } else {
+                    // White stars with slight variations
+                    const intensity = Math.random() * 0.5 + 0.5;
+                    colors[i * 3] = intensity;
+                    colors[i * 3 + 1] = intensity;
+                    colors[i * 3 + 2] = intensity;
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            return new THREE.Points(geometry, material);
+        };
+
+        const starfield = createStarfield();
+        const milkWayGeometry = new THREE.SphereGeometry(1000, 64, 64);
+        const milkWayMaterial = new THREE.MeshBasicMaterial({
+            map: milkWay,
+            side: THREE.BackSide,   
+            transparent: true,
+            opacity: 0.9
+        });
+        const milkWayMesh = new THREE.Mesh(milkWayGeometry, milkWayMaterial);
+        const starGeometry = new THREE.SphereGeometry(1000, 64, 64);
+        const starMaterial = new THREE.MeshBasicMaterial({
+            map: stars,
+            side: THREE.BackSide,
+            color: 0xffffff,
+            depthWrite: false,
+            transparent: true,
+            opacity: 0.5
+        });
+        const starMesh = new THREE.Mesh(starGeometry, starMaterial);
+        scene.add(starMesh);
+        scene.add(milkWayMesh);
+        scene.add(starfield);
+        scene.add(starfield);
+
+        // Sol (fonte de luz visível)
+        // Criação da superfície do Sol com efeito de brilho usando MeshStandardMaterial e emissive
+        const sunGeometry = new THREE.SphereGeometry(2, 64, 64);
+        const sunMaterial = new THREE.MeshBasicMaterial({
+            map: textureLoader.load(sunMaterials.surfaceMaterial),
+            emissive: new THREE.Color(0xffffff)
+        });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        sun.position.set(camera.position.x, camera.position.y, camera.position.z - 10);
+        
+        
+
+        scene.add(sun);
+
+        // Luz do Sol (intensa e com sombras)
+        
+
+        // Terra
+        const earthGeometry = new THREE.SphereGeometry(1, 64, 64);
+        const earthMaterial = new THREE.MeshPhongMaterial({
+            map: earthTexture,
+
+            bumpScale: 0.1,
+            specularMap: earthSpec,
+            specular: new THREE.Color(0x333333),
+            shininess: 5
+        });
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        earth.position.set(5, 0, 0);
+        scene.add(earth);
+
+        // Nuvens da Terra
+        const cloudGeometry = new THREE.SphereGeometry(1.01, 64, 64);
+        const nightGeometry = new THREE.SphereGeometry(1.01, 64, 64);
+        const nightMaterial = new THREE.MeshPhongMaterial({
+            map: earthNight,
+            transparent: true,
+            opacity: 0.8,
+            depthWrite: false,
+            side: THREE.FrontSide,
+            blending: THREE.AdditiveBlending,
+            // Use emissive to make night lights visible only in shadow
+            emissive: new THREE.Color(0xffffff),
+            emissiveMap: earthNight,
+            emissiveIntensity: 1.2,
+            color: 0x000000
+        });
+        const nightMesh = new THREE.Mesh(nightGeometry, nightMaterial);
+        nightMesh.position.copy(earth.position);
+        scene.add(nightMesh);
+        const cloudMaterial = new THREE.MeshPhongMaterial({
+            map: cloudTexture,
+            transparent: true,
+            opacity: 0.4,
+            depthWrite: false
+        });
+        const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+        clouds.position.copy(earth.position);
+        scene.add(clouds);
+
+        // Lua
+        const moonGeometry = new THREE.SphereGeometry(0.27, 64, 64);
+        const moonMaterial = new THREE.MeshPhongMaterial({
+            map: moonTexture,
+            bumpScale: 0.05
+        });
+        const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+        moon.position.set(earth.position.x + 5, earth.position.y, earth.position.z + 10);
+        scene.add(moon);
+
+        // Variáveis de controle
+        let rotating = true;
+        let lightEnabled = true;
+        let cloudsVisible = true;
+        let moonVisible = true;
+
+        // Controles da interface
+        document.getElementById('toggleRotation').addEventListener('click', () => {
+            rotating = !rotating;
+            document.getElementById('toggleRotation').textContent = rotating ? 'Pausar Rotação' : 'Retomar Rotação';
+        });
+
+        document.getElementById('toggleLight').addEventListener('click', () => {
+            lightEnabled = !lightEnabled;
+            sunLight.visible = lightEnabled;
+            sun.visible = lightEnabled;
+            document.getElementById('toggleLight').textContent = lightEnabled ? 'Alternar Sol' : 'Ligar Sol';
+        });
+
+        document.getElementById('toggleClouds').addEventListener('click', () => {
+            cloudsVisible = !cloudsVisible;
+            clouds.visible = cloudsVisible;
+            document.getElementById('toggleClouds').textContent = cloudsVisible ? 'Ocultar Nuvens' : 'Mostrar Nuvens';
+        });
+
+        document.getElementById('toggleMoon').addEventListener('click', () => {
+            moonVisible = !moonVisible;
+            moon.visible = moonVisible;
+            document.getElementById('toggleMoon').textContent = moonVisible ? 'Ocultar Lua' : 'Mostrar Lua';
+        });
+
+            // Add spacecraft to show sense of movement
+            const shipGeometry = new THREE.ConeGeometry(0.5, 2, 16);
+            const shipMaterial = new THREE.MeshBasicMaterial({ 
+                map: rocketTexture, 
+                transparent: true,
+                alphaTest: 0.1 
+            });
+            const ship = new THREE.Mesh(shipGeometry, shipMaterial);
+            
+ // Adiciona a câmera à cena
+            
+            // Controls - free flying in space
+            let moveDirection = new THREE.Vector3();
+            let velocity = new THREE.Vector3();
+            let rotation = new THREE.Vector3();
+            const moveSpeed = 3;
+            const rotationSpeed = 0.05;
+            
+            // Movement state
+            const keyStates = {
+                KeyW: false, KeyS: false, 
+                KeyA: false, KeyD: false,
+                KeyQ: false, KeyE: false,
+                ShiftLeft: false, Space: false,
+                ArrowUp: false, ArrowDown: false,
+                ArrowLeft: false, ArrowRight: false
+            };
+            
+            // Event listeners for keyboard
+            window.addEventListener('keydown', (event) => {
+                if (keyStates[event.code] !== undefined) {
+                    keyStates[event.code] = true;
+                }
+            });
+            
+            window.addEventListener('keyup', (event) => {
+                if (keyStates[event.code] !== undefined) {
+                    keyStates[event.code] = false;
+                }
+            });
+            
+            // Mouse movement for view control when space is held
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            
+            window.addEventListener('mousedown', (event) => {
+                if (keyStates.Space) {
+                    isDragging = true;
+                    previousMousePosition = { x: event.clientX, y: event.clientY };
+                }
+            });
+            
+            window.addEventListener('mousemove', (event) => {
+                if (isDragging && keyStates.Space) {
+                    const deltaX = event.clientX - previousMousePosition.x;
+                    const deltaY = event.clientY - previousMousePosition.y;
+                    
+                    camera.rotation.y -= deltaX * 0.002;
+                    camera.rotation.x -= deltaY * 0.002;
+                    
+                    previousMousePosition = { x: event.clientX, y: event.clientY };
+                }
+            });
+            
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        const cameraOffset = new THREE.Vector3(0, 5, -10);
+        const movementSpeed = 0.5;
+        // Animação
+        function animate() {
+            
+            requestAnimationFrame(animate);
+
+            controls.update();
+
+    // Suavizar o movimento usando interpolação linear (lerp)
+    moveDirection.set(0, 0, 0);
+
+    // Direção desejada baseada nas teclas pressionadas
+    let desiredDirection = new THREE.Vector3();
+    if (keyStates.KeyW) desiredDirection.z += 1;
+    if (keyStates.KeyS) desiredDirection.z -= 1;
+    if (keyStates.KeyA) desiredDirection.x += 1;
+    if (keyStates.KeyD) desiredDirection.x -= 1;
+    if (keyStates.KeyQ) desiredDirection.y += 1;
+    if (keyStates.KeyE) desiredDirection.y -= 1;
+
+    // Normaliza a direção desejada
+    if (desiredDirection.length() > 0) {
+        desiredDirection.normalize();
+    }
+
+    // Aplica orientação do ship
+    desiredDirection.applyQuaternion(ship.quaternion);
+
+    // Suaviza a direção do movimento (lerp)
+    moveDirection.lerp(desiredDirection, 0.1);
+
+    // Aplica boost se shift estiver pressionado
+    const currentMoveSpeed = keyStates.ShiftLeft ? moveSpeed * 5 : moveSpeed;
+
+    // Suaviza a velocidade (lerp)
+    velocity.lerp(moveDirection.multiplyScalar(currentMoveSpeed), 0.1);
+
+    // Suaviza rotação da câmera com as setas
+    if (keyStates.ArrowLeft) cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationSpeed * 0.5);
+    if (keyStates.ArrowRight) cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -rotationSpeed * 0.5);
+    if (keyStates.ArrowUp) cameraOffset.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationSpeed * 0.5);
+    if (keyStates.ArrowDown) cameraOffset.applyAxisAngle(new THREE.Vector3(1, 0, 0), -rotationSpeed * 0.5);
+
+    // pegar o angulo em relação a y
+    const angleY = cameraOffset.angleTo(new THREE.Vector3(0, 1, 0));
+    //pegar o angulo em relação a x
+    const angleX = cameraOffset.angleTo(new THREE.Vector3(1, 0, 0));
+    //pegar o angulo em relação a z
+    const angleZ = cameraOffset.angleTo(new THREE.Vector3(0, 0, 1));
+    const rad = 360 / (2 * Math.PI);
+    document.getElementById('infoAngle').textContent = (`Angle Y: ${(angleY*rad).toFixed(1)}º, Angle X: ${(angleX*rad).toFixed(1)}º, Angle Z: ${(angleZ*rad).toFixed(1)}º`);
+    document.getElementById('infoPosition').textContent = `Posição: X: ${ship.position.x.toFixed(2)}, Y: ${ship.position.y.toFixed(2)}, Z: ${ship.position.z.toFixed(2)}`;
+    document.getElementById('infoPosition').style.display = 'block';
+    document.getElementById('infoAngle').style.display = 'block';
+
+// Aplicar damping na velocidade
+    velocity.multiplyScalar(0.9);
+
+    // Aplica damping na rotação
+    rotation.multiplyScalar(0.9);
+
+                // Update camera position and rotation
+                ship.position.add(velocity);
+                ship.rotation.x += rotation.x;
+                ship.rotation.y += rotation.y;
+                
+                // Render scene
+             
+          
+               
+            
+               
+                renderer.render(scene, camera);
+
+            function updateStarfield() {
+            starfield.rotation.y += 0.0002; 
+            milkWayMesh.rotation.y += 0.00004
+            starMesh.rotation.y += 0.00004; // Leve rotação para o fundo de estrelas
+            // Leve rotação para o fundo de estrelas
+            }
+            updateStarfield();
+            function orbitEarth() {
+                  if (rotating) {
+            earth.rotation.y += 0.005;
+            nightMesh.rotation.y += 0.005;
+            clouds.rotation.y += 0.006;
+            
+            // Lua orbita ao redor da Terra
+            if (moonVisible) {
+                moon.position.x = earth.position.x + Math.cos(Date.now() * 0.0005) * 3; // Aumenta o raio da órbita da Lua
+                moon.position.z = earth.position.z + Math.sin(Date.now() * 0.0005) * 3;
+                moon.rotation.y += 0.001;
+            }
+            }
+                if (!rotating) return;
+                earth.position.x = -25 * Math.cos(Date.now() * 0.000002);
+                earth.position.z = 25 * Math.sin(Date.now() * 0.000002);
+                clouds.position.copy(earth.position);
+                nightMesh.position.copy(earth.position);
+                //configure a noite para aparecer na parte oposta do Sol
+                // Gira a noite para ficar oposta ao Sol
+                // Lua orbita ao redor da Terra
+                moon.position.x = earth.position.x - Math.cos(Date.now() * 0.0005) * 3;
+                moon.position.z = earth.position.z + Math.sin(Date.now() * 0.0005) * 3;
+                moon.rotation.y -= 0.001;
+            }
+            orbitEarth();
+        }
+        function otbitLine() {
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5 });
+            const points = [];
+            for (let i = 0; i <= 100; i++) {
+                const angle = (i / 100) * Math.PI * 2;
+                points.push(new THREE.Vector3(Math.cos(angle) * 25, 0, Math.sin(angle) * 25));
+            }
+            const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+            const orbitLine = new THREE.Line(lineGeometry, lineMaterial);
+            scene.add(orbitLine);
+        }
+        // Luz do Sol (DirectionalLight) sempre apontando para a Terra
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        scene.add(sunLight);
+
+        // Atualize a posição e direção da luz do Sol a cada frame
+        function updateSunLight() {
+            // O Sol está sempre atrás da câmera, mas a luz deve apontar para a Terra
+            sun.position.set(camera.position.x, camera.position.y, camera.position.z - 10);
+            sunLight.position.copy(sun.position);
+            sunLight.target.position.copy(earth.position);
+            scene.add(sunLight.target);
+        }
+        updateSunLight();
+        otbitLine();
+
+
+
+        animate();
+    </script>
+</body>
+</html>

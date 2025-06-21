@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Navigator - Free Flying Perspective</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            background-color: rgba(0,0,0,0.7);
+            padding: 20px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="info">
+        W/S: Move Forward/Backward<br>
+        A/D: Move Left/Right<br>
+        Q/E: Move Up/Down<br>
+        Arrow Keys: Look Around<br>
+        Hold Shift: Boost Speed<br>
+        Hold Space: Pan View (When stationary)
+    </div>
+    <div id="loading">Loading Space...</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
+
+    <script>
+        // Wait for everything to load
+        window.addEventListener('load', init);
+
+        function init() {
+            // Hide loading indicator
+            document.getElementById('loading').style.display = 'none';
+            
+            // Setup scene
+            const scene = new THREE.Scene();
+            const milkWayTexture = new THREE.TextureLoader().load('8k_stars_milky_way.jpg', function(texture) {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(1, 1);
+            });
+            scene.background = milkWayTexture;
+            
+            // Setup camera - perspective of free-flying in space
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+            camera.position.set(0, 0, 15);
+            
+            // Setup renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Add stars
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff });
+            
+            const starsVertices = [];
+            for (let i = 0; i < 10000; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = (Math.random() - 0.5) * 2000;
+                const z = (Math.random() - 0.5) * 2000;
+                starsVertices.push(x, y, z);
+            }
+            
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+            const stars = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(stars);
+            
+            // Add a galaxy in the distance
+            const galaxyGeometry = new THREE.SphereGeometry(300, 32, 32);
+            const galaxyMaterial = new THREE.MeshBasicMaterial({
+                color: 0x3a0ca3,
+                transparent: true,
+                opacity: 0.5
+            });
+            const galaxy = new THREE.Mesh(galaxyGeometry, galaxyMaterial);
+            galaxy.position.set(500, 300, -800);
+            scene.add(galaxy);
+            
+            // Add some distant planets
+            const planetColors = [0xFF5733, 0x33FF57, 0x3357FF, 0xF3FF33, 0xFF33F3];
+            for (let i = 0; i < 5; i++) {
+                const size = 30 + Math.random() * 50;
+                const planetGeometry = new THREE.SphereGeometry(size, 32, 32);
+                const planetMaterial = new THREE.MeshBasicMaterial({ 
+                    color: planetColors[i % planetColors.length] 
+                });
+                const planet = new THREE.Mesh(planetGeometry, planetMaterial);
+                
+                planet.position.set(
+                    (Math.random() - 0.5) * 1000,
+                    (Math.random() - 0.5) * 1000,
+                    (Math.random() - 0.5) * 1000 - 500
+                );
+                
+                scene.add(planet);
+            }
+            
+            // Add spacecraft to show sense of movement
+            const shipGeometry = new THREE.ConeGeometry(0.5, 2, 16);
+            const shipMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc });
+            const ship = new THREE.Mesh(shipGeometry, shipMaterial);
+            ship.rotation.x = Math.PI / 2;
+            ship.position.set(0, 0, -3);
+            camera.add(ship);
+            scene.add(camera);
+            
+            // Controls - free flying in space
+            let moveDirection = new THREE.Vector3();
+            let velocity = new THREE.Vector3();
+            let rotation = new THREE.Vector3();
+            const moveSpeed = 3;
+            const rotationSpeed = 0.05;
+            
+            // Movement state
+            const keyStates = {
+                KeyW: false, KeyS: false, 
+                KeyA: false, KeyD: false,
+                KeyQ: false, KeyE: false,
+                ShiftLeft: false, Space: false,
+                ArrowUp: false, ArrowDown: false,
+                ArrowLeft: false, ArrowRight: false
+            };
+            
+            // Event listeners for keyboard
+            window.addEventListener('keydown', (event) => {
+                if (keyStates[event.code] !== undefined) {
+                    keyStates[event.code] = true;
+                }
+            });
+            
+            window.addEventListener('keyup', (event) => {
+                if (keyStates[event.code] !== undefined) {
+                    keyStates[event.code] = false;
+                }
+            });
+            
+            // Mouse movement for view control when space is held
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            
+            window.addEventListener('mousedown', (event) => {
+                if (keyStates.Space) {
+                    isDragging = true;
+                    previousMousePosition = { x: event.clientX, y: event.clientY };
+                }
+            });
+            
+            window.addEventListener('mousemove', (event) => {
+                if (isDragging && keyStates.Space) {
+                    const deltaX = event.clientX - previousMousePosition.x;
+                    const deltaY = event.clientY - previousMousePosition.y;
+                    
+                    camera.rotation.y -= deltaX * 0.002;
+                    camera.rotation.x -= deltaY * 0.002;
+                    
+                    previousMousePosition = { x: event.clientX, y: event.clientY };
+                }
+            });
+            
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                // Reset movement vector
+                moveDirection.set(0, 0, 0);
+                velocity.set(0, 0, 0);
+                
+                // Forward/backward movement (W/S)
+                if (keyStates.KeyW) moveDirection.z -= 1;
+                if (keyStates.KeyS) moveDirection.z += 1;
+                
+                // Left/right movement (A/D)
+                if (keyStates.KeyA) moveDirection.x -= 1;
+                if (keyStates.KeyD) moveDirection.x += 1;
+                
+                // Up/down movement (Q/E)
+                if (keyStates.KeyQ) moveDirection.y += 1;
+                if (keyStates.KeyE) moveDirection.y -= 1;
+                
+                // Apply boost if shift is held
+                const currentMoveSpeed = keyStates.ShiftLeft ? moveSpeed * 5 : moveSpeed;
+                
+                // Normalize movement vector and apply speed
+                if (moveDirection.length() > 0) {
+                    moveDirection.normalize();
+                }
+                
+                // Apply movement relative to camera orientation
+                moveDirection.applyQuaternion(camera.quaternion);
+                velocity.copy(moveDirection.multiplyScalar(currentMoveSpeed));
+                
+                // Apply rotation from arrow keys
+                if (keyStates.ArrowUp) rotation.x -= rotationSpeed;
+                if (keyStates.ArrowDown) rotation.x += rotationSpeed;
+                if (keyStates.ArrowLeft) rotation.y -= rotationSpeed;
+                if (keyStates.ArrowRight) rotation.y += rotationSpeed;
+                
+                // Apply rotation damping
+                rotation.multiplyScalar(0.9);
+                
+                // Update camera position and rotation
+                camera.position.add(velocity);
+                camera.rotation.x += rotation.x;
+                camera.rotation.y += rotation.y;
+                
+                // Render scene
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+        }
+    </script>
+</body>
+</html>

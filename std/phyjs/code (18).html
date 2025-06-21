@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Boy Adventure Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            background-color: #f0f8ff;
+            font-family: 'Arial', sans-serif;
+        }
+        #game-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        #score-display {
+            font-size: 24px;
+            color: #e74c3c;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Adventure Boy</h1>
+        <div id="score-display">Score: 0</div>
+        <div id="game-canvas"></div>
+    </div>
+
+    <script>
+        let boy;
+        let boyLeft, boyRight;
+        let platforms = [];
+        let coins = [];
+        let score = 0;
+        let gravity = 0.6;
+        let isJumping = false;
+        let clouds = [];
+        let gameStarted = false;
+        let backgroundMusic;
+
+        function preload() {
+            // Load character sprites
+            boyLeft = loadImage('https://www.pngmart.com/files/5/Boy-Running-Transparent-Background.png');
+            boyRight = loadImage('https://www.pngmart.com/files/5/Boy-Running-Transparent-PNG.png');
+            // Load platform image (generic)
+            // Load coin image
+        }
+
+        function setup() {
+            let canvas = createCanvas(800, 500);
+            canvas.parent('game-canvas');
+            
+            // Initialize player
+            boy = {
+                x: 100,
+                y: 300,
+                width: 50,
+                height: 80,
+                speed: 5,
+                velX: 0,
+                velY: 0,
+                facingRight: true,
+                jumping: false
+            };
+            
+            // Create platforms
+            platforms.push({
+                x: 0,
+                y: height - 20,
+                width: width,
+                height: 20
+            });
+            
+            platforms.push({
+                x: 200,
+                y: 350,
+                width: 150,
+                height: 20
+            });
+            
+            platforms.push({
+                x: 400,
+                y: 250,
+                width: 150,
+                height: 20
+            });
+            
+            platforms.push({
+                x: 600,
+                y: 350,
+                width: 150,
+                height: 20
+            });
+            
+            // Create coins
+            for (let i = 0; i < 10; i++) {
+                coins.push({
+                    x: random(50, width - 50),
+                    y: random(50, height - 100),
+                    width: 20,
+                    height: 20,
+                    value: 10,
+                    collected: false
+                });
+            }
+            
+            // Create clouds for background
+            for (let i = 0; i < 5; i++) {
+                clouds.push({
+                    x: random(width),
+                    y: random(50, 150),
+                    width: random(70, 120),
+                    height: random(30, 50),
+                    speed: random(0.2, 0.5)
+                });
+            }
+            
+            // Start game for mobile devices
+            document.addEventListener('touchstart', startGame);
+        }
+
+        function startGame() {
+            gameStarted = true;
+            document.getElementById('score-display').style.display = 'block';
+        }
+
+        function draw() {
+            if (!gameStarted) {
+                showStartScreen();
+                return;
+            }
+            
+            // Sky gradient background
+            let skyTop = color(135, 206, 235);
+            let skyBottom = color(176, 224, 230);
+            for (let y = 0; y < height; y++) {
+                let inter = map(y, 0, height, 0, 1);
+                let c = lerpColor(skyTop, skyBottom, inter);
+                stroke(c);
+                line(0, y, width, y);
+            }
+            
+            // Draw sun
+            fill(255, 255, 0);
+            noStroke();
+            ellipse(width - 100, 100, 80, 80);
+            
+            // Draw clouds
+            drawClouds();
+            
+            // Draw platforms
+            fill(139, 69, 19); // Brown
+            for (let platform of platforms) {
+                rect(platform.x, platform.y, platform.width, platform.height);
+            }
+            
+            // Draw coins
+            fill(255, 215, 0); // Gold
+            for (let coin of coins) {
+                if (!coin.collected) {
+                    ellipse(coin.x, coin.y, coin.width, coin.height);
+                    // Draw coin details
+                    fill(218, 165, 32); // Darker gold
+                    ellipse(coin.x, coin.y, coin.width - 8, coin.height - 8);
+                    fill(255, 215, 0);
+                }
+            }
+            
+            // Handle player input
+            handleInput();
+            
+            // Apply gravity
+            boy.velY += gravity;
+            
+            // Update player position
+            boy.x += boy.velX;
+            boy.y += boy.velY;
+            
+            // Check platform collisions
+            boy.jumping = true;
+            for (let platform of platforms) {
+                if (collideRectRect(
+                    boy.x, boy.y, boy.width, boy.height,
+                    platform.x, platform.y, platform.width, platform.height
+                ) && boy.velY > 0 && boy.y + boy.height < platform.y + 20) {
+                    boy.jumping = false;
+                    boy.velY = 0;
+                    boy.y = platform.y - boy.height;
+                }
+            }
+            
+            // Check screen boundaries
+            boy.x = constrain(boy.x, 0, width - boy.width);
+            boy.y = constrain(boy.y, -100, height - boy.height);
+            
+            // Check coin collection
+            for (let coin of coins) {
+                if (!coin.collected && 
+                    collideRectRect(
+                        boy.x, boy.y, boy.width, boy.height,
+                        coin.x - coin.width/2, coin.y - coin.height/2, coin.width, coin.height
+                    )) {
+                    coin.collected = true;
+                    score += coin.value;
+                    document.getElementById('score-display').textContent = `Score: ${score}`;
+                }
+            }
+            
+            // Draw player
+            if (boy.facingRight) {
+                image(boyRight, boy.x, boy.y, boy.width, boy.height);
+            } else {
+                image(boyLeft, boy.x, boy.y, boy.width, boy.height);
+            }
+            
+            // Game over if player falls off screen
+            if (boy.y > height) {
+                gameOver();
+            }
+        }
+
+        function showStartScreen() {
+            background(135, 206, 235);
+            fill(255);
+            textSize(32);
+            textAlign(CENTER, CENTER);
+            text("Adventure Boy", width/2, height/2 - 50);
+            textSize(20);
+            text("Tap to Start", width/2, height/2);
+            text("Use arrow keys or swipe to move", width/2, height/2 + 40);
+            text("Collect all coins!", width/2, height/2 + 70);
+        }
+
+        function drawClouds() {
+            fill(255, 255, 255, 200);
+            noStroke();
+            for (let cloud of clouds) {
+                ellipse(cloud.x, cloud.y, cloud.width, cloud.height);
+                ellipse(cloud.x + cloud.width/3, cloud.y - cloud.height/3, cloud.width, cloud.height);
+                ellipse(cloud.x - cloud.width/4, cloud.y, cloud.width, cloud.height);
+                
+                // Move clouds
+                cloud.x += cloud.speed;
+                if (cloud.x > width + cloud.width/2) {
+                    cloud.x = -cloud.width/2;
+                    cloud.y = random(50, 150);
+                }
+            }
+        }
+
+        function handleInput() {
+            boy.velX = 0;
+            
+            // Keyboard controls
+            if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) { // A key
+                boy.velX = -boy.speed;
+                boy.facingRight = false;
+            }
+            if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) { // D key
+                boy.velX = boy.speed;
+                boy.facingRight = true;
+            }
+            if ((keyIsDown(UP_ARROW) || keyIsDown(87) || keyIsDown(32)) && !boy.jumping) { // W or Space
+                boy.velY = -15;
+                boy.jumping = true;
+            }
+            
+            // Mobile touch controls
+            if (touches.length > 0) {
+                let touchX = touches[0].x;
+                if (touchX < width/3) { // Left third of screen
+                    boy.velX = -boy.speed;
+                    boy.facingRight = false;
+                } else if (touchX > width*2/3) { // Right third of screen
+                    boy.velX = boy.speed;
+                    boy.facingRight = true;
+                } else { // Middle third (jump)
+                    if (!boy.jumping) {
+                        boy.velY = -15;
+                        boy.jumping = true;
+                    }
+                }
+            }
+        }
+
+        function gameOver() {
+            noLoop();
+            background(0, 0, 0, 150);
+            fill(255);
+            textSize(32);
+            textAlign(CENTER, CENTER);
+            text("Game Over", width/2, height/2 - 30);
+            text(`Final Score: ${score}`, width/2, height/2 + 20);
+            textSize(20);
+            text("Refresh to play again", width/2, height/2 + 60);
+        }
+
+        function collideRectRect(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 && x1 + w1 > x2 &&
+                   y1 < y2 + h2 && y1 + h1 > y2;
+        }
+    </script>
+</body>
+</html>

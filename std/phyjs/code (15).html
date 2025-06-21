@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Space Navigator</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            background-color: rgba(0,0,0,0.7);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        #coordinates {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="info">
+        W/S: Move Forward/Backward<br>
+        A/D: Move Left/Right<br>
+        Q/E: Move Up/Down<br>
+        Arrow Keys: Look Around<br>
+        Hold Shift: Boost Speed<br>
+        Hold Space + Mouse: Pan View<br>
+        Speed: <span id="speed-display">0</span> units/sec
+    </div>
+    <div id="coordinates">
+        X: 0 | Y: 0 | Z: 0
+    </div>
+    <div id="loading">Loading Infinite Space...</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Wait for everything to load
+        window.addEventListener('load', init);
+
+        function init() {
+            // Hide loading indicator
+            document.getElementById('loading').style.display = 'none';
+            
+            // Setup scene
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000020);
+            
+            // Setup camera - perspective of free-flying in space
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100000);
+            camera.position.set(0, 0, 15);
+            
+            // Setup renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Star system parameters
+            const STAR_COUNT = 20000;
+            const STAR_FIELD_SIZE = 5000;
+            const STAR_REGENERATION_DISTANCE = 2000;
+            const starSizes = [0.1, 0.15, 0.2, 0.25];
+            const starColors = [
+                new THREE.Color(0xffffff), // White
+                new THREE.Color(0x9bb0ff), // Blue-white
+                new THREE.Color(0xffd078), // Yellow
+                new THREE.Color(0xff6767)  // Red
+            ];
+
+            // Create stars geometry
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsMaterial = new THREE.PointsMaterial({
+                size: 0.2,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.8,
+                sizeAttenuation: true
+            });
+            
+            // Create initial stars
+            let starsVertices = [];
+            let starsColors = [];
+            let starsSizes = [];
+            
+            function generateStarsInVolume(centerX, centerY, centerZ, size) {
+                const newVertices = [];
+                const newColors = [];
+                const newSizes = [];
+                
+                for (let i = 0; i < STAR_COUNT; i++) {
+                    // Position within the volume
+                    const x = centerX + (Math.random() - 0.5) * size;
+                    const y = centerY + (Math.random() - 0.5) * size;
+                    const z = centerZ + (Math.random() - 0.5) * size;
+                    
+                    // Color and size
+                    const colorIdx = Math.floor(Math.random() * starColors.length);
+                    const sizeIdx = Math.floor(Math.random() * starSizes.length);
+                    
+                    newVertices.push(x, y, z);
+                    newColors.push(starColors[colorIdx].r, starColors[colorIdx].g, starColors[colorIdx].b);
+                    newSizes.push(starSizes[sizeIdx]);
+                }
+                
+                return { vertices: newVertices, colors: newColors, sizes: newSizes };
+            }
+            
+            // Initial star generation around origin
+            const initialStars = generateStarsInVolume(0, 0, 0, STAR_FIELD_SIZE);
+            starsVertices = initialStars.vertices;
+            starsColors = initialStars.colors;
+            starsSizes = initialStars.sizes;
+            
+            // Set up star attributes
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+            starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starsColors, 3));
+            starsGeometry.setAttribute('size', new THREE.Float32BufferAttribute(starsSizes, 1));
+            
+            // Create stars points
+            const stars = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(stars);
+            
+            // Add a distant nebula
+            const nebulaTexture = new THREE.TextureLoader().load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAB3RJTUUH4QgJDhIMmlpIjQAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAADJklEQVR42u3dMU7DMBSA4X+QGDgCY2fpATgBZ+EGHIGRkbFDB8ZOXTozdegUkqZJndhx4/f+xZJVp7GcP5b+cY7VBkDTNE3TNE3TNE3TNE3TNE2LqN0C+ADegeeF5/cF7AE3wE3kfawz4AV4BF7nvlfeeMkcIyOBHXAPXC8MwCMwALcL/oXASOBwHvQA7C58drdKyFdbJd6RQAV8Ao8Lnv+yMuTHFQL2SSABPoCHhc//+Vcg/wuB1RGoJQISZ4GEEKgmAhIPhIRAVRGQeCEkBKqLgMQbISFQZQQkXgkBwQhoEQIaQUACCCGgRQgIgSgCaQTywyGGQHEEZiEgBPIjMA0BIVAGgWkICIEyCExCQAiUQ2ASAkKgHAJHIbAVge8R+BoCIXASgZMQOA+BIAK/gyAEzkMgisDvIAiB8xAII/A7CELgPASCCfwOghA4D4FgAr+DIATOQ0BAQNO0GmzXdX2IvI9d1/XVrpE2BzzNCWgRAmrsDz7q/0dBrf0BrRXgl4BaK4BWAM0WQCsKW5ZYBWyJgDC4WgNEWQVsDYAwuFoD2yJQgYBmA6RZA0SLgJbOgCYFNFkDmg2QFg1o0kATBppaA1qEgKYW0KSAphbQpICmFtCkgCYNNCGgCYBoDSAhEC0CpIDmLKBFA1q0gGYNEC0CpICmNZCmBbTWAGEiICUMorWAljCI1gJSwiBaDKQJg2gDEFYYRBsAKWEQbQCkhEG0AZASBtEGQEoYRBuANGGwhEHUAVAICAiDqAUQjYoRLQyitoA2EAbRBkBLGERtAWHwPwIQbQC0hZKQlhaQJgyiDYCWMIjaAto/EBBtALS2gLC4Mom2BbS0QLQW0KYIiJYWEAYXJiDaFtCSCoiWKBAWA1paQBIEpJULSIKAJEhoSQJJEJBWLiAlTSCJgpJSCSRRQJKkkMQGSKIgLS0gSRhIoyMlrRpIoiAljYLUWkCtySLyBUw+UKcVXn+1AAAAAElFTkSuQmCC');
+            const nebulaGeometry = new THREE.SphereGeometry(1000, 32, 32);
+            const nebulaMaterial = new THREE.MeshBasicMaterial({
+                map: nebulaTexture,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.BackSide
+            });
+            const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial);
+            nebula.position.set(3000, 1500, -4000);
+            scene.add(nebula);
+            
+            // Spacecraft
+            const shipGeometry = new THREE.ConeGeometry(0.5, 2, 16);
+            const shipMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc });
+            const ship = new THREE.Mesh(shipGeometry, shipMaterial);
+            ship.rotation.x = Math.PI / 2;
+            ship.position.set(0, 0, -3);
+            camera.add(ship);
+            scene.add(camera);
+            
+            // Controls
+            let moveDirection = new THREE.Vector3();
+            let velocity = new THREE.Vector3();
+            let rotation = new THREE.Vector3();
+            const moveSpeed = 10;
+            const rotationSpeed = 0.05;
+            
+            // Movement state
+            const keyStates = {
+                KeyW: false, KeyS: false, 
+                KeyA: false, KeyD: false,
+                KeyQ: false, KeyE: false,
+                ShiftLeft: false, Space: false,
+                ArrowUp: false, ArrowDown: false,
+                ArrowLeft: false, ArrowRight: false
+            };
+            
+            // Track camera movement for star regeneration
+            let lastRegenerationPosition = camera.position.clone();
+            
+            // Event listeners
+            window.addEventListener('keydown', (event) => {
+                if (keyStates[event.code] !== undefined) {
+                    keyStates[event.code] = true;
+                }
+            });
+            
+            window.addEventListener('keyup', (event) => {
+                if (keyStates[event.code] !== undefined) {
+                    keyStates[event.code] = false;
+                }
+            });
+            
+            // Mouse movement for view control
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            
+            window.addEventListener('mousedown', (event) => {
+                if (keyStates.Space) {
+                    isDragging = true;
+                    previousMousePosition = { x: event.clientX, y: event.clientY };
+                }
+            });
+            
+            window.addEventListener('mousemove', (event) => {
+                if (isDragging && keyStates.Space) {
+                    const deltaX = event.clientX - previousMousePosition.x;
+                    const deltaY = event.clientY - previousMousePosition.y;
+                    
+                    camera.rotation.y -= deltaX * 0.002;
+                    camera.rotation.x -= deltaY * 0.002;
+                    
+                    previousMousePosition = { x: event.clientX, y: event.clientY };
+                }
+            });
+            
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            // Function to regenerate stars as we move through space
+            function checkStarRegeneration() {
+                const distanceMoved = camera.position.distanceTo(lastRegenerationPosition);
+                
+                if (distanceMoved > STAR_REGENERATION_DISTANCE) {
+                    // Calculate which direction we're moving the fastest
+                    const movementDirection = camera.position.clone().sub(lastRegenerationPosition).normalize();
+                    
+                    // Generate new stars ahead of us
+                    const newStarsCenter = camera.position.clone().add(
+                        movementDirection.multiplyScalar(STAR_FIELD_SIZE * 0.7)
+                    );
+                    
+                    const newStars = generateStarsInVolume(
+                        newStarsCenter.x,
+                        newStarsCenter.y,
+                        newStarsCenter.z,
+                        STAR_FIELD_SIZE
+                    );
+                    
+                    // Update star attributes
+                    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newStars.vertices, 3));
+                    starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(newStars.colors, 3));
+                    starsGeometry.setAttribute('size', new THREE.Float32BufferAttribute(newStars.sizes, 1));
+                    starsGeometry.attributes.position.needsUpdate = true;
+                    starsGeometry.attributes.color.needsUpdate = true;
+                    starsGeometry.attributes.size.needsUpdate = true;
+                    
+                    // Update last regeneration position
+                    lastRegenerationPosition.copy(camera.position);
+                }
+            }
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                // Reset movement vector
+                moveDirection.set(0, 0, 0);
+                velocity.set(0, 0, 0);
+                
+                // Forward/backward movement (W/S)
+                if (keyStates.KeyW) moveDirection.z -= 1;
+                if (keyStates.KeyS) moveDirection.z += 1;
+                
+                // Left/right movement (A/D)
+                if (keyStates.KeyA) moveDirection.x -= 1;
+                if (keyStates.KeyD) moveDirection.x += 1;
+                
+                // Up/down movement (Q/E)
+                if (keyStates.KeyQ) moveDirection.y += 1;
+                if (keyStates.KeyE) moveDirection.y -= 1;
+                
+                // Apply boost if shift is held
+                const currentMoveSpeed = keyStates.ShiftLeft ? moveSpeed * 5 : moveSpeed;
+                
+                // Normalize movement vector and apply speed
+                if (moveDirection.length() > 0) {
+                    moveDirection.normalize();
+                }
+                
+                // Apply movement relative to camera orientation
+                moveDirection.applyQuaternion(camera.quaternion);
+                velocity.copy(moveDirection.multiplyScalar(currentMoveSpeed));
+                
+                // Apply rotation from arrow keys
+                if (keyStates.ArrowUp) rotation.x -= rotationSpeed;
+                if (keyStates.ArrowDown) rotation.x += rotationSpeed;
+                if (keyStates.ArrowLeft) rotation.y -= rotationSpeed;
+                if (keyStates.ArrowRight) rotation.y += rotationSpeed;
+                
+                // Apply rotation damping
+                rotation.multiplyScalar(0.9);
+                
+                // Update camera position and rotation
+                camera.position.add(velocity);
+                camera.rotation.x += rotation.x;
+                camera.rotation.y += rotation.y;
+                
+                // Update UI
+                document.getElementById('speed-display').textContent = Math.round(velocity.length() * 10) / 10;
+                document.getElementById('coordinates').innerHTML = `
+                    X: ${Math.round(camera.position.x)} | 
+                    Y: ${Math.round(camera.position.y)} | 
+                    Z: ${Math.round(camera.position.z)}
+                `;
+                
+                // Check if we need to regenerate stars
+                checkStarRegeneration();
+                
+                // Render scene
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+        }
+    </script>
+</body>
+</html>

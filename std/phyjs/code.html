@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earth to Moon Space Journey</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        canvas {
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            pointer-events: none;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">EARTH TO MOON SPACE JOURNEY</div>
+    <div id="controls">
+        <h3>Controls:</h3>
+        <p>W/S: Move Forward/Backward</p>
+        <p>A/D: Strafe Left/Right</p>
+        <p>Q/E: Ascend/Descend</p>
+        <p>Arrow Keys: Rotate Camera</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
+    
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+        sunLight.position.set(100, 100, 100);
+        scene.add(sunLight);
+
+        // Scale factor (1 unit = 1000 km)
+        const scaleFactor = 1000;
+        const earthRadius = 6371 / scaleFactor;
+        const moonRadius = 1737 / scaleFactor;
+        const earthMoonDistance = 384400 / scaleFactor;
+
+        // Create Earth
+        const earthGeometry = new THREE.SphereGeometry(earthRadius, 6400, 6400);
+        const earthTexture = new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg');
+        const earthBumpMap = new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_normal_2048.jpg');
+        const earthSpecularMap = new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_specular_2048.jpg');
+        
+        const earthMaterial = new THREE.MeshPhongMaterial({
+            map: earthTexture,
+            bumpMap: earthBumpMap,
+            bumpScale: 0.05,
+            specularMap: earthSpecularMap,
+            specular: new THREE.Color('grey'),
+            shininess: 5
+        });
+        
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
+
+        // Create Moon
+        const moonGeometry = new THREE.SphereGeometry(moonRadius, 302, 302);
+        const moonTexture = new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/moon_1024.jpg');
+        const moonBumpMap = new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/moon_1024.jpg');
+        
+        const moonMaterial = new THREE.MeshPhongMaterial({
+            map: moonTexture,
+            bumpMap: moonBumpMap,
+            bumpScale: 0.05
+        });
+        
+        const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+        moon.position.set(earthMoonDistance, 0, 0);
+        scene.add(moon);
+
+        // Create stars background
+        const starsGeometry = new THREE.BufferGeometry();
+        const starsCount = 10000;
+        const positions = new Float32Array(starsCount * 3);
+        
+        for (let i = 0; i < starsCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 2000;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 2000;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 2000;
+        }
+        
+        starsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const starsMaterial = new THREE.PointsMaterial({ 
+            color: 0xffffff,
+            size: 0.1,
+            transparent: true,
+            opacity: 0.8
+        });
+        const stars = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(stars);
+
+        // Create a simple spaceship (cube for demonstration)
+        const shipGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+        const shipMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x4169e1,
+            specular: 0x111111,
+            shininess: 30
+        });
+        const spaceship = new THREE.Mesh(shipGeometry, shipMaterial);
+        spaceship.position.set(0, 0, earthRadius + 5);
+        scene.add(spaceship);
+
+        // Add engine glow
+        const engineLight = new THREE.PointLight(0x00ffff, 1, 10);
+        engineLight.position.set(0, 0, -1.5);
+        spaceship.add(engineLight);
+
+        // Camera setup
+        camera.position.set(0, 5, -10);
+        camera.lookAt(spaceship.position);
+
+        // Controls
+        const keys = {
+            w: false, a: false, s: false, d: false, q: false, e: false,
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false
+        };
+
+        document.addEventListener('keydown', (event) => {
+            if (keys.hasOwnProperty(event.key)) {
+                keys[event.key] = true;
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (keys.hasOwnProperty(event.key)) {
+                keys[event.key] = false;
+            }
+        });
+
+        // Animation variables
+        const cameraOffset = new THREE.Vector3(0, 5, -10);
+        const rotationSpeed = 0.02;
+        const movementSpeed = 0.5;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Spaceship movement
+            if (keys.w) spaceship.translateZ(-movementSpeed);
+            if (keys.s) spaceship.translateZ(movementSpeed);
+            if (keys.a) spaceship.translateX(-movementSpeed);
+            if (keys.d) spaceship.translateX(movementSpeed);
+            if (keys.q) spaceship.translateY(movementSpeed);
+            if (keys.e) spaceship.translateY(-movementSpeed);
+
+            // Camera rotation
+            if (keys.ArrowLeft) cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationSpeed);
+            if (keys.ArrowRight) cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -rotationSpeed);
+            if (keys.ArrowUp) cameraOffset.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationSpeed);
+            if (keys.ArrowDown) cameraOffset.applyAxisAngle(new THREE.Vector3(1, 0, 0), -rotationSpeed);
+
+            // Update camera position
+            camera.position.copy(spaceship.position).add(cameraOffset);
+            camera.lookAt(spaceship.position);
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Spin System with Microwave Field</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 5px;
+            z-index: 100;
+        }
+        #stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 5px;
+            z-index: 100;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 5px;
+            z-index: 100;
+        }
+        .control-group {
+            margin: 5px 0;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h2>Spin System in Microwave Field</h2>
+        <p>Red arrows: Spin up<br>Green arrows: Spin down</p>
+    </div>
+    <div id="stats">
+        <div>Temperature: <span id="temp-value">0</span> K</div>
+        <div>Energy: <span id="energy-value">0</span> J</div>
+        <div>Spin Up: <span id="up-value">0</span> / Spin Down: <span id="down-value">0</span></div>
+    </div>
+    <div id="controls">
+        <div class="control-group">
+            <label for="frequency">Frequency (MHz):</label>
+            <input type="range" id="frequency" min="0.1" max="5" step="0.1" value="1">
+            <span id="freq-value">1.0</span>
+        </div>
+        <div class="control-group">
+            <label for="temperature">Target Temp (K):</label>
+            <input type="range" id="temperature" min="0.1" max="5" step="0.1" value="1">
+            <span id="temp-target">1.0</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // Constants
+        const kB = 1.380649e-23; // Boltzmann (J/K)
+        const μB = 9.2740100783e-24; // Bohr magneton (J/T)
+        const g = 2.0023; // g-factor
+        
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        
+        // Camera controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.set(10, 10, 10);
+        controls.update();
+        
+        // Lighting
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(1, 1, 1);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x404040));
+        
+        // Grid
+        const grid = new THREE.GridHelper(20, 20);
+        scene.add(grid);
+        
+        // Parameters
+        const params = {
+            frequency: 1.0, // MHz
+            targetTemp: 1.0 // K
+        };
+        
+        // Spin system
+        const spins = [];
+        const system = {
+            up: 0,
+            down: 0,
+            energy: 0,
+            temperature: 0
+        };
+        
+        // Create 5x5x5 spin lattice
+        function createSpins() {
+            const geometry = new THREE.ConeGeometry(0.2, 1, 16);
+            geometry.translate(0, 0.5, 0);
+            
+            for (let x = -2; x <= 2; x++) {
+                for (let y = -2; y <= 2; y++) {
+                    for (let z = -2; z <= 2; z++) {
+                        const material = new THREE.MeshPhongMaterial({ 
+                            color: 0xff0000,
+                            emissive: 0x880000
+                        });
+                        
+                        const arrow = new THREE.Mesh(geometry, material);
+                        arrow.position.set(x * 2, y * 2, z * 2);
+                        
+                        const spin = {
+                            mesh: arrow,
+                            state: 1, // 1 = up, -1 = down
+                            energy: -μB * g * 0.1 // Initial energy (assuming B=0.1T)
+                        };
+                        
+                        spins.push(spin);
+                        system.up++;
+                        scene.add(arrow);
+                    }
+                }
+            }
+            
+            system.energy = spins.reduce((sum, spin) => sum + spin.energy, 0);
+            updateSystemStats();
+        }
+        
+        // Update spin directions based on microwave field
+        function updateSpins(time) {
+            const B_mw = 0.1 * Math.sin(time * params.frequency * 0.01); // Microwave field
+            
+            spins.forEach(spin => {
+                // Probability to flip (simplified)
+                const ΔE = 2 * μB * g * (0.1 + B_mw); // Total field = static + microwave
+                const flipProb = Math.exp(-ΔE / (kB * params.targetTemp)) * params.frequency * 0.001;
+                
+                if (Math.random() < flipProb) {
+                    spin.state *= -1;
+                    spin.energy = -spin.energy;
+                    
+                    // Update visualization
+                    spin.mesh.rotation.x = spin.state === 1 ? 0 : Math.PI;
+                    spin.mesh.material.color.setHex(spin.state === 1 ? 0xff0000 : 0x00ff00);
+                    spin.mesh.material.emissive.setHex(spin.state === 1 ? 0x880000 : 0x008800);
+                    
+                    // Update counts
+                    if (spin.state === 1) {
+                        system.up++;
+                        system.down--;
+                    } else {
+                        system.up--;
+                        system.down++;
+                    }
+                }
+            });
+            
+            // Recalculate total energy
+            system.energy = spins.reduce((sum, spin) => sum + spin.energy, 0);
+            
+            // Calculate temperature from energy (simplified)
+            if (system.down > 0) {
+                const ratio = system.up / system.down;
+                system.temperature = (μB * g * 0.1) / (kB * Math.log(ratio));
+            }
+        }
+        
+        // Update UI stats
+        function updateSystemStats() {
+            document.getElementById('temp-value').textContent = system.temperature.toFixed(2);
+            document.getElementById('energy-value').textContent = system.energy.toExponential(2);
+            document.getElementById('up-value').textContent = system.up;
+            document.getElementById('down-value').textContent = system.down;
+        }
+        
+        // Event listeners for controls
+        document.getElementById('frequency').addEventListener('input', (e) => {
+            params.frequency = parseFloat(e.target.value);
+            document.getElementById('freq-value').textContent = params.frequency.toFixed(1);
+        });
+        
+        document.getElementById('temperature').addEventListener('input', (e) => {
+            params.targetTemp = parseFloat(e.target.value);
+            document.getElementById('temp-target').textContent = params.targetTemp.toFixed(1);
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Animation loop
+        function animate(time) {
+            requestAnimationFrame(animate);
+            
+            time *= 0.001; // Convert to seconds
+            updateSpins(time);
+            updateSystemStats();
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Initialize and start
+        createSpins();
+        animate();
+    </script>
+</body>
+</html>
