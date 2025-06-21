@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microwave Wave Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #0f0f1a;
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        #controls {
+            margin: 20px;
+            padding: 15px;
+            background-color: rgba(15, 15, 30, 0.8);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            margin: 0 10px;
+        }
+        
+        label {
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #7fbbff;
+        }
+        
+        input[type="range"] {
+            width: 200px;
+            margin-bottom: 5px;
+        }
+        
+        .value-display {
+            font-size: 12px;
+            color: #a0c4ff;
+            text-align: center;
+        }
+        
+        h1 {
+            margin-top: 20px;
+            color: #7fbbff;
+            text-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+        }
+        
+        #description {
+            max-width: 600px;
+            text-align: center;
+            margin: 10px 20px 20px;
+            padding: 15px;
+            background-color: rgba(15, 15, 30, 0.6);
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <h1>Microwave Wave Simulation</h1>
+    <div id="description">
+        This simulation visualizes the alternating translation of atoms in a microwave field.
+        Particles oscillate in wave patterns representing the electromagnetic waves interacting with matter.
+        Adjust the controls to modify the wave behavior and observe the effects.
+    </div>
+    <div id="controls">
+        <div class="control-group">
+            <label for="waveFrequency">Wave Frequency</label>
+            <input type="range" id="waveFrequency" min="0.01" max="0.2" step="0.01" value="0.05">
+            <div class="value-display" id="frequencyValue">0.05</div>
+        </div>
+        <div class="control-group">
+            <label for="waveAmplitude">Wave Amplitude</label>
+            <input type="range" id="waveAmplitude" min="10" max="200" step="1" value="100">
+            <div class="value-display" id="amplitudeValue">100</div>
+        </div>
+        <div class="control-group">
+            <label for="particleCount">Particle Count</label>
+            <input type="range" id="particleCount" min="20" max="200" step="5" value="100">
+            <div class="value-display" id="countValue">100</div>
+        </div>
+        <div class="control-group">
+            <label for="waveSpeed">Wave Speed</label>
+            <input type="range" id="waveSpeed" min="0.1" max="5" step="0.1" value="1">
+            <div class="value-display" id="speedValue">1</div>
+        </div>
+    </div>
+    <div id="canvas-container"></div>
+
+    <script>
+        let particles = [];
+        let waveFrequency = 0.05;
+        let waveAmplitude = 100;
+        let particleCount = 100;
+        let waveSpeed = 1;
+        let time = 0;
+        let colorOffset = 0;
+        
+        function setup() {
+            const container = document.getElementById('canvas-container');
+            const canvas = createCanvas(800, 500);
+            canvas.parent('canvas-container');
+            
+            // Initialize particles
+            initializeParticles();
+            
+            // Set up event listeners for controls
+            document.getElementById('waveFrequency').addEventListener('input', function() {
+                waveFrequency = parseFloat(this.value);
+                document.getElementById('frequencyValue').textContent = waveFrequency.toFixed(2);
+            });
+            
+            document.getElementById('waveAmplitude').addEventListener('input', function() {
+                waveAmplitude = parseInt(this.value);
+                document.getElementById('amplitudeValue').textContent = waveAmplitude;
+            });
+            
+            document.getElementById('particleCount').addEventListener('input', function() {
+                particleCount = parseInt(this.value);
+                document.getElementById('countValue').textContent = particleCount;
+                initializeParticles();
+            });
+            
+            document.getElementById('waveSpeed').addEventListener('input', function() {
+                waveSpeed = parseFloat(this.value);
+                document.getElementById('speedValue').textContent = waveSpeed.toFixed(1);
+            });
+        }
+        
+        function initializeParticles() {
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: map(i, 0, particleCount - 1, 50, width - 50),
+                    baseY: height / 2,
+                    size: random(3, 8),
+                    color: color(
+                        random(150, 255),
+                        random(100, 200),
+                        random(200, 255),
+                        200
+                    ),
+                    phaseOffset: random(TWO_PI)
+                });
+            }
+        }
+        
+        function draw() {
+            background(15, 15, 30, 20);
+            
+            // Update time with speed factor
+            time += 0.01 * waveSpeed;
+            colorOffset += 0.01;
+            
+            // Draw connecting lines first (behind particles)
+            for (let i = 0; i < particles.length - 1; i++) {
+                const p1 = particles[i];
+                const p2 = particles[i + 1];
+                
+                // Calculate current positions with wave effect
+                const y1 = p1.baseY + sin(time * waveFrequency + p1.phaseOffset) * waveAmplitude;
+                const y2 = p2.baseY + sin(time * waveFrequency + p2.phaseOffset) * waveAmplitude;
+                
+                // Draw connecting line with gradient effect
+                const lineColor = color(
+                    100 + sin(colorOffset) * 100,
+                    150 + cos(colorOffset * 0.7) * 100,
+                    200 + sin(colorOffset * 1.3) * 50,
+                    100
+                );
+                stroke(lineColor);
+                strokeWeight(1);
+                line(p1.x, y1, p2.x, y2);
+            }
+            
+            // Draw particles
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                const y = p.baseY + sin(time * waveFrequency + p.phaseOffset) * waveAmplitude;
+                
+                // Add pulsing effect to particle color
+                const pulseFactor = 0.5 + 0.5 * sin(time * 2 + i * 0.1);
+                const pulseColor = color(
+                    red(p.color) * pulseFactor,
+                    green(p.color) * pulseFactor,
+                    blue(p.color) * pulseFactor,
+                    200
+                );
+                
+                fill(pulseColor);
+                noStroke();
+                ellipse(p.x, y, p.size, p.size);
+                
+                // Add glow effect
+                drawingContext.shadowBlur = 15;
+                drawingContext.shadowColor = pulseColor;
+            }
+            
+            // Draw wave information
+            fill(200, 200, 255, 150);
+            noStroke();
+            textSize(14);
+            text(`Frequency: ${waveFrequency.toFixed(2)} Hz`, 20, 30);
+            text(`Amplitude: ${waveAmplitude} px`, 20, 50);
+            text(`Particles: ${particleCount}`, 20, 70);
+            text(`Speed: ${waveSpeed.toFixed(1)}x`, 20, 90);
+            
+            // Reset shadow effect
+            drawingContext.shadowBlur = 0;
+        }
+        
+        function windowResized() {
+            resizeCanvas(800, 500);
+            initializeParticles();
+        }
+    </script>
+</body>
+</html>

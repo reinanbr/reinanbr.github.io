@@ -1,0 +1,8 @@
+<<<<<<<
+        const starfield = createStarfield();
+        scene.add(starfield);
+        scene.add(starfield);
+
+=======
+        const starfield = createStarfield();
+        scene.add(starfield);

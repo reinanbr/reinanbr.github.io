@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microwave Atom Spin Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        #container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .description {
+            max-width: 600px;
+            text-align: center;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        #canvas-container {
+            margin: 20px 0;
+            border: 3px solid #2c3e50;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        label {
+            font-weight: bold;
+            width: 150px;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        .value-display {
+            width: 50px;
+            text-align: center;
+        }
+        .diagram-explanation {
+            max-width: 600px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        .temperature-display {
+            font-size: 18px;
+            font-weight: bold;
+            padding: 10px 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>Microwave Atom Spin Simulation</h1>
+        <p class="description">
+            This simulation demonstrates how microwave radiation causes water molecules to spin, creating the heating effect in microwave ovens.
+            Adjust the controls to see how different microwave frequencies and intensities affect the molecules.
+        </p>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="frequency">Microwave Frequency:</label>
+                <input type="range" id="frequency" min="0.5" max="3" step="0.1" value="1">
+                <div class="value-display" id="frequency-value">1 GHz</div>
+            </div>
+            <div class="control-group">
+                <label for="intensity">Microwave Intensity:</label>
+                <input type="range" id="intensity" min="0" max="100" value="50">
+                <div class="value-display" id="intensity-value">50%</div>
+            </div>
+            <div class="control-group">
+                <label for="molecules">Molecule Count:</label>
+                <input type="range" id="molecules" min="10" max="100" value="50">
+                <div class="value-display" id="molecules-value">50</div>
+            </div>
+            <button id="add-food-btn">Add Water-Rich Food</button>
+        </div>
+        
+        <div id="canvas-container"></div>
+        
+        <div class="temperature-display">
+            Current Temperature: <span id="temperature">20°C</span>
+        </div>
+        
+        <div class="diagram-explanation">
+            <h3>Simulation Explanation:</h3>
+            <p>
+                In this simulation, the colored balls represent water molecules (mostly H₂O). The arrows show the dipole moment (separation of charge)
+                caused by the oxygen's stronger pull on the electrons compared to the hydrogen atoms.
+            </p>
+            <p>
+                Microwave radiation (controlled by frequency and intensity sliders) creates an oscillating electric field that causes these polar molecules
+                to constantly realign. This rotational motion generates heat through dipole rotation and molecular friction.
+            </p>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #3498db;"></div>
+                    <span>Slower Molecules</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e74c3c;"></div>
+                    <span>Faster Molecules</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #000;"></div>
+                    <span>Electric Field</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let molecules = [];
+        let microwaveField = [];
+        let temperature = 20;
+        let fieldDirection = 1;
+        let fieldTimer = 0;
+        let microwaveActive = false;
+        let foodPresent = false;
+        
+        function setup() {
+            const container = document.getElementById('canvas-container');
+            const canvas = createCanvas(600, 400);
+            canvas.parent('canvas-container');
+            
+            // Initialize molecules
+            initializeMolecules(50);
+            
+            // Setup event listeners for controls
+            document.getElementById('frequency').addEventListener('input', updateFrequency);
+            document.getElementById('intensity').addEventListener('input', updateIntensity);
+            document.getElementById('molecules').addEventListener('input', updateMoleculeCount);
+            document.getElementById('add-food-btn').addEventListener('click', addFood);
+            
+            updateFrequency();
+            updateIntensity();
+            updateMoleculeCount();
+        }
+        
+        function initializeMolecules(count) {
+            molecules = [];
+            for (let i = 0; i < count; i++) {
+                molecules.push(createMolecule());
+            }
+        }
+        
+        function createMolecule() {
+            return {
+                x: random(width),
+                y: random(height),
+                angle: random(TWO_PI),
+                speed: 0,
+                maxSpeed: random(0.02, 0.05),
+                rotationSpeed: random(0.01, 0.03),
+                color: color(52, 152, 219)
+            };
+        }
+        
+        function updateFrequency() {
+            const freqValue = document.getElementById('frequency').value;
+            document.getElementById('frequency-value').textContent = freqValue + ' GHz';
+            temperature = 20 + (freqValue * 0.1);
+            document.getElementById('temperature').textContent = Math.round(temperature) + '°C';
+        }
+        
+        function updateIntensity() {
+            const intValue = document.getElementById('intensity').value;
+            document.getElementById('intensity-value').textContent = intValue + '%';
+            microwaveActive = intValue > 0;
+            
+            // Update temperature based on intensity
+            temperature = 20 + (intValue * 0.8);
+            document.getElementById('temperature').textContent = Math.round(temperature) + '°C';
+        }
+        
+        function updateMoleculeCount() {
+            const count = parseInt(document.getElementById('molecules').value);
+            document.getElementById('molecules-value').textContent = count;
+            
+            // Add or remove molecules as needed
+            if (count > molecules.length) {
+                for (let i = molecules.length; i < count; i++) {
+                    molecules.push(createMolecule());
+                }
+            } else if (count < molecules.length) {
+                molecules = molecules.slice(0, count);
+            }
+        }
+        
+        function addFood() {
+            foodPresent = true;
+            
+            // Create a cluster of molecules
+            const centerX = width / 2 + random(-50, 50);
+            const centerY = height / 2 + random(-50, 50);
+            
+            for (let i = 0; i < 30; i++) {
+                molecules.push({
+                    x: centerX + random(-60, 60),
+                    y: centerY + random(-60, 60),
+                    angle: random(TWO_PI),
+                    speed: 0,
+                    maxSpeed: random(0.03, 0.06),
+                    rotationSpeed: random(0.02, 0.04),
+                    color: color(231, 76, 60)
+                });
+            }
+            
+            document.getElementById('molecules').value = molecules.length;
+            document.getElementById('molecules-value').textContent = molecules.length;
+        }
+        
+        function draw() {
+            background(240);
+            
+            // Draw microwave field representation
+            drawField();
+            
+            // Update and draw molecules
+            updateMolecules();
+            drawMolecules();
+            
+            // Update field direction based on frequency
+            const frequency = parseFloat(document.getElementById('frequency').value);
+            fieldTimer += frequency * 0.01;
+            
+            if (fieldTimer > 1) {
+                fieldDirection *= -1;
+                fieldTimer = 0;
+            }
+        }
+        
+        function drawField() {
+            const intensity = parseInt(document.getElementById('intensity').value);
+            if (intensity === 0) return;
+            
+            // Draw field direction arrows
+            stroke(0);
+            strokeWeight(1);
+            for (let y = 30; y < height - 30; y += 40) {
+                for (let x = 30; x < width - 30; x += 40) {
+                    const arrowSize = 4 + (intensity * 0.05);
+                    push();
+                    translate(x, y);
+                    if (fieldDirection > 0) {
+                        line(-arrowSize * 2, 0, 0, 0);
+                        line(0, 0, -arrowSize, -arrowSize);
+                        line(0, 0, -arrowSize, arrowSize);
+                    } else {
+                        line(arrowSize * 2, 0, 0, 0);
+                        line(0, 0, arrowSize, -arrowSize);
+                        line(0, 0, arrowSize, arrowSize);
+                    }
+                    pop();
+                }
+            }
+        }
+        
+        function updateMolecules() {
+            const intensity = parseInt(document.getElementById('intensity').value) / 100;
+            
+            for (let mol of molecules) {
+                // Apply microwave effect to rotation
+                if (microwaveActive) {
+                    const force = intensity * fieldDirection;
+                    if (fieldDirection > 0) {
+                      mol.angle -= mol.rotationSpeed * (1 + force);
+                    }
+                    else{
+                      mol.angle += mol.rotationSpeed * (1 + force);
+                      }
+                    // Increase speed based on intensity
+                    mol.speed = lerp(0, mol.maxSpeed, intensity);
+                } else {
+                    // Slowly return to normal state
+                    mol.speed = lerp(mol.speed, 0, 0.9);
+                }
+                
+                // Update position with random motion
+                mol.x += cos(mol.angle) * mol.speed;
+                mol.y += sin(mol.angle) * mol.speed;
+                
+                // Keep molecules within bounds with soft bounce
+                if (mol.x < 0 || mol.x > width || mol.y < 0 || mol.y > height) {
+                    mol.angle = -mol.angle;
+                    mol.x = constrain(mol.x, 10, width - 10);
+                    mol.y = constrain(mol.y, 10, height - 10);
+                }
+                
+                // Update color based on speed (heat)
+                const heatFactor = mol.speed / mol.maxSpeed;
+                mol.color = lerpColor(color(52, 152, 219), color(231, 76, 60), heatFactor);
+            }
+        }
+        
+        function drawMolecules() {
+            for (let mol of molecules) {
+                // Draw molecule
+                push();
+                translate(mol.x, mol.y);
+                rotate(mol.angle);
+                
+                // Draw dipole moment arrow
+                stroke(0);
+                strokeWeight(1);
+                line(0, 0, 15, 0);
+                line(15, 0, 10, -5);
+                line(15, 0, 10, 5);
+                
+                // Draw atoms
+                fill(mol.color);
+                noStroke();
+                circle(8, 0, 12);  // Oxygen (larger)
+                circle(22, -8, 8); // Hydrogen 1
+                circle(22, 8, 8);  // Hydrogen 2
+                
+                pop();
+            }
+        }
+    </script>
+</body>
+</html>
+

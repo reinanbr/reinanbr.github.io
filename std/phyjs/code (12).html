@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Microwave Spin Wave Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0a0a0f;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        
+        #container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(20, 20, 40, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 100, 255, 0.5);
+            z-index: 100;
+            width: 300px;
+        }
+        
+        .control-group {
+            margin-bottom: 10px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #8ab4ff;
+            font-size: 14px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        
+        .value-display {
+            color: #b0c8ff;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(20, 20, 40, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 100, 255, 0.5);
+            z-index: 100;
+            max-width: 300px;
+        }
+        
+        h1 {
+            margin: 0 0 10px 0;
+            color: #7fbbff;
+            font-size: 18px;
+        }
+        
+        p {
+            margin: 5px 0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        #stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(20, 20, 40, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 100, 255, 0.5);
+            z-index: 100;
+            width: 250px;
+        }
+        
+        .stat-item {
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            color: #8ab4ff;
+            font-size: 14px;
+        }
+        
+        .stat-value {
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .temp-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .temp-low {
+            background-color: #00aaff;
+        }
+        
+        .temp-medium {
+            background-color: #ffff00;
+        }
+        
+        .temp-high {
+            background-color: #ff5500;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <div id="info">
+        <h1>Microwave Spin Wave Simulation</h1>
+        <p>This 3D visualization shows atoms (blue spheres) with spin states (arrows) being alternated by an electromagnetic wave (transparent wave surface). The microwave field causes the spins to flip between up and down states.</p>
+        <p>Use mouse to rotate, scroll to zoom.</p>
+    </div>
+    
+    <div id="stats">
+        <h2>System Statistics</h2>
+        <div class="stat-item">
+            <span class="stat-label">Total Energy:</span>
+            <span class="stat-value" id="totalEnergy">0.00</span> <span>J</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Spin Up/Down Ratio:</span>
+            <span class="stat-value" id="spinRatio">1.00</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Temperature:</span>
+            <span class="temp-indicator temp-low" id="tempIndicator"></span>
+            <span class="stat-value" id="temperature">0.00</span> <span>K</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Entropy:</span>
+            <span class="stat-value" id="entropy">0.00</span> <span>J/K</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Heat Capacity:</span>
+            <span class="stat-value" id="heatCapacity">0.00</span> <span>J/K</span>
+        </div>
+    </div>
+    
+    <div id="controls">
+        <div class="control-group">
+            <label for="waveFrequency">Wave Frequency (MHz)</label>
+            <input type="range" id="waveFrequency" min="0.1" max="5" step="0.1" value="1">
+            <div class="value-display" id="frequencyValue">1.0 MHz</div>
+        </div>
+        <div class="control-group">
+            <label for="waveAmplitude">Wave Amplitude</label>
+            <input type="range" id="waveAmplitude" min="0.5" max="3" step="0.1" value="1.5">
+            <div class="value-display" id="amplitudeValue">1.5</div>
+        </div>
+        <div class="control-group">
+            <label for="atomCount">Atom Grid Size</label>
+            <input type="range" id="atomCount" min="2" max="8" step="1" value="5">
+            <div class="value-display" id="countValue">5×5×5</div>
+        </div>
+        <div class="control-group">
+            <label for="showWave">Show EM Wave</label>
+            <input type="checkbox" id="showWave" checked>
+        </div>
+        <div class="control-group">
+            <label for="externalTemp">External Temperature (K)</label>
+            <input type="range" id="externalTemp" min="0.1" max="10" step="0.1" value="2.0">
+            <div class="value-display" id="externalTempValue">2.0 K</div>
+        </div>
+    </div>
+
+    <script>
+        // Physical constants
+        const kB = 1.380649e-23; // Boltzmann constant (J/K)
+        const h = 6.62607015e-34; // Planck constant (J·s)
+        const μB = 9.2740100783e-24; // Bohr magneton (J/T)
+        const g = 2.0023; // Electron g-factor
+        
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0f);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('container').appendChild(renderer.domElement);
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+        
+        // Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.set(10, 10, 10);
+        controls.update();
+        
+        // Simulation parameters
+        let waveFrequency = 1.0;
+        let waveAmplitude = 1.5;
+        let atomCount = 5;
+        let showWave = true;
+        let externalTemp = 2.0; // External temperature in Kelvin
+        let time = 0;
+        
+        // System statistics
+        let spinUpCount = 0;
+        let spinDownCount = 0;
+        let totalEnergy = 0;
+        let systemTemperature = 0;
+        let entropy = 0;
+        let heatCapacity = 0;
+        
+        // Objects
+        let atoms = [];
+        let spinArrows = [];
+        let wavePlane;
+        let atomGroup = new THREE.Group();
+        scene.add(atomGroup);
+        
+        // Wave parameters
+        const waveGeometry = new THREE.PlaneGeometry(20, 20, 50, 50);
+        const waveMaterial = new THREE.MeshPhongMaterial({
+            color: 0x00aaff,
+            transparent: true,
+            opacity: 0.3,
+            wireframe: true,
+            side: THREE.DoubleSide
+        });
+        wavePlane = new THREE.Mesh(waveGeometry, waveMaterial);
+        wavePlane.rotation.x = Math.PI / 2;
+        scene.add(wavePlane);
+        
+        // Initialize simulation
+        function initializeSimulation() {
+            // Clear previous atoms
+            atomGroup.children = [];
+            atoms = [];
+            spinArrows = [];
+            
+            // Create grid of atoms
+            const spacing = 2;
+            const startPos = -((atomCount - 1) * spacing) / 2;
+            
+            const atomGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const arrowGeometry = new THREE.ConeGeometry(0.15, 0.8, 8);
+            arrowGeometry.translate(0, 0.5, 0);
+            
+            for (let x = 0; x < atomCount; x++) {
+                for (let y = 0; y < atomCount; y++) {
+                    for (let z = 0; z < atomCount; z++) {
+                        // Atom sphere
+                        const atomMaterial = new THREE.MeshPhongMaterial({
+                            color: 0x3a7bd5,
+                            emissive: 0x1a3b7d,
+                            emissiveIntensity: 0.5
+                        });
+                        const atom = new THREE.Mesh(atomGeometry, atomMaterial);
+                        atom.position.set(
+                            startPos + x * spacing,
+                            startPos + y * spacing,
+                            startPos + z * spacing
+                        );
+                        
+                        // Spin arrow (initially pointing up)
+                        const arrowMaterial = new THREE.MeshPhongMaterial({
+                            color: 0xff5555,
+                            emissive: 0xff0000,
+                            emissiveIntensity: 0.3
+                        });
+                        const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
+                        arrow.position.copy(atom.position);
+                        arrow.position.y += 0.5;
+                        
+                        // Store initial spin direction (1 for up, -1 for down)
+                        atom.userData = { spinDirection: 1 };
+                        
+                        atomGroup.add(atom);
+                        atomGroup.add(arrow);
+                        
+                        atoms.push(atom);
+                        spinArrows.push(arrow);
+                    }
+                }
+            }
+            
+            // Initialize statistics
+            spinUpCount = atoms.length;
+            spinDownCount = 0;
+            updateStatistics();
+        }
+        
+        // Calculate system statistics using statistical mechanics
+        function updateStatistics() {
+            const N = atoms.length;
+            const B = waveAmplitude * 1e-3; // Magnetic field in Tesla (simplified)
+            const ΔE = 2 * μB * g * B; // Energy difference between spin states
+            
+            // Calculate partition function
+            const Z = Math.exp(-ΔE/(2*kB*externalTemp)) + Math.exp(ΔE/(2*kB*externalTemp));
+            
+            // Calculate probabilities
+            const pUp = Math.exp(-ΔE/(2*kB*externalTemp)) / Z;
+            const pDown = Math.exp(ΔE/(2*kB*externalTemp)) / Z;
+            
+            // Update counts based on probabilities
+            spinUpCount = Math.round(N * pUp);
+            spinDownCount = N - spinUpCount;
+            
+            // Calculate total energy
+            totalEnergy = spinUpCount * (-ΔE/2) + spinDownCount * (ΔE/2);
+            
+            // Calculate temperature (simplified approximation)
+            systemTemperature = externalTemp * (1 + 0.1 * Math.sin(time * 0.5)); // Oscillates slightly around external temp
+            
+            // Calculate entropy (S = kB * ln(Ω))
+            const Ω = factorial(N) / (factorial(spinUpCount) * factorial(spinDownCount));
+            entropy = kB * Math.log(Ω);
+            
+            // Calculate heat capacity (approximation)
+            heatCapacity = kB * Math.pow(ΔE/(2*kB*systemTemperature), 2) / 
+                          Math.pow(Math.cosh(ΔE/(2*kB*systemTemperature)), 2) * N;
+            
+            // Update UI
+            document.getElementById('totalEnergy').textContent = totalEnergy.toExponential(2);
+            document.getElementById('spinRatio').textContent = (spinUpCount / Math.max(1, spinDownCount)).toFixed(2);
+            document.getElementById('temperature').textContent = systemTemperature.toFixed(2);
+            document.getElementById('entropy').textContent = entropy.toExponential(2);
+            document.getElementById('heatCapacity').textContent = heatCapacity.toExponential(2);
+            
+            // Update temperature indicator color
+            const tempIndicator = document.getElementById('tempIndicator');
+            tempIndicator.className = 'temp-indicator ';
+            if (systemTemperature < 1) {
+                tempIndicator.classList.add('temp-low');
+            } else if (systemTemperature < 5) {
+                tempIndicator.classList.add('temp-medium');
+            } else {
+                tempIndicator.classList.add('temp-high');
+            }
+        }
+        
+        // Helper function for factorial calculation
+        function factorial(n) {
+            if (n <= 1) return 1;
+            let result = 1;
+            for (let i = 2; i <= n; i++) {
+                result *= i;
+            }
+            return result;
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            time += 0.01 * waveFrequency;
+            
+            // Update wave surface
+            if (showWave) {
+                wavePlane.visible = true;
+                const positionAttribute = waveGeometry.attributes.position;
+                for (let i = 0; i < positionAttribute.count; i++) {
+                    const x = positionAttribute.getX(i);
+                    const z = positionAttribute.getZ(i);
+                    const distance = Math.sqrt(x * x + z * z);
+                    positionAttribute.setY(i, waveAmplitude * Math.sin(distance - time * 5));
+                }
+                positionAttribute.needsUpdate = true;
+                waveGeometry.computeVertexNormals();
+            } else {
+                wavePlane.visible = false;
+            }
+            
+            // Update atom spins
+            spinUpCount = 0;
+            spinDownCount = 0;
+            
+            for (let i = 0; i < atoms.length; i++) {
+                const atom = atoms[i];
+                const arrow = spinArrows[i];
+                
+                // Calculate wave influence at atom position
+                const waveInfluence = Math.sin(time * 5 - atom.position.length() * 0.5) * waveAmplitude;
+                
+                // Determine new spin state based on wave and temperature
+                const spinFlipProbability = 0.01 * (1 - Math.exp(-waveAmplitude * waveFrequency / systemTemperature));
+                const shouldFlip = Math.random() < spinFlipProbability;
+                
+                let newSpinDirection = atom.userData.spinDirection;
+                if (shouldFlip) {
+                    newSpinDirection = -newSpinDirection;
+                }
+                
+                // Update spin direction if it changed
+                if (atom.userData.spinDirection !== newSpinDirection) {
+                    atom.userData.spinDirection = newSpinDirection;
+                    
+                    // Flip the arrow direction
+                    arrow.rotation.x = newSpinDirection === 1 ? 0 : Math.PI;
+                    
+                    // Change color based on spin state
+                    arrow.material.color.set(newSpinDirection === 1 ? 0xff5555 : 0x55ff55);
+                    arrow.material.emissive.set(newSpinDirection === 1 ? 0xff0000 : 0x00ff00);
+                }
+                
+                // Count spin states
+                if (atom.userData.spinDirection === 1) {
+                    spinUpCount++;
+                } else {
+                    spinDownCount++;
+                }
+            }
+            
+            // Update statistics
+            updateStatistics();
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Set up controls event listeners
+        document.getElementById('waveFrequency').addEventListener('input', function() {
+            waveFrequency = parseFloat(this.value);
+            document.getElementById('frequencyValue').textContent = waveFrequency.toFixed(1) + " MHz";
+        });
+        
+        document.getElementById('waveAmplitude').addEventListener('input', function() {
+            waveAmplitude = parseFloat(this.value);
+            document.getElementById('amplitudeValue').textContent = waveAmplitude.toFixed(1);
+        });
+        
+        document.getElementById('atomCount').addEventListener('input', function() {
+            atomCount = parseInt(this.value);
+            document.getElementById('countValue').textContent = atomCount + "×" + atomCount + "×" + atom
