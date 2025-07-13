@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microwave Spin Simulation with EM Wave</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background: #111;
+            color: white;
+        }
+        #container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        #wave-controls {
+            position: absolute;
+            top: 120px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        .temp-meter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .temp-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+            transition: width 0.5s;
+        }
+        .temp-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            text-shadow: 1px 1px 1px black;
+        }
+        .control-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        input[type="range"] {
+            width: 180px;
+        }
+        .value-display {
+            font-size: 12px;
+            text-align: right;
+            margin-top: 3px;
+        }
+        .wave-plane {
+            position: absolute;
+            width: 100%;
+            height: 100px;
+            bottom: 150px;
+            left: 0;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="info">
+        <h2>Microwave Spin Simulation</h2>
+        <p>Electromagnetic wave alternating atomic spins between north and south poles</p>
+    </div>
+    
+    <div class="temp-meter">
+        <div class="temp-fill" id="tempFill"></div>
+        <div class="temp-text" id="tempText">0°C</div>
+    </div>
+    
+    <div id="wave-controls">
+        <h3>Wave Properties</h3>
+        <div class="control-group">
+            <label for="frequency">Frequency (GHz):</label>
+            <input type="range" id="frequency" min="0.5" max="5" step="0.1" value="2.45">
+            <div class="value-display" id="frequencyValue">2.45 GHz</div>
+        </div>
+        <div class="control-group">
+            <label for="amplitude">Amplitude:</label>
+            <input type="range" id="amplitude" min="0.1" max="2" step="0.1" value="1">
+            <div class="value-display" id="amplitudeValue">1.0</div>
+        </div>
+    </div>
+    
+    <div id="controls">
+        <button id="startBtn">Start Wave</button>
+        <button id="stopBtn" disabled>Stop Wave</button>
+        <button id="resetBtn">Reset Simulation</button>
+    </div>
+
+    <script>
+        // Constants
+        const ATOM_COUNT = 30;
+        const INITIAL_TEMP = 20;
+        const MAX_TEMP = 100;
+        
+        // Variables
+        let scene, camera, renderer;
+        let atoms = [];
+        let temperature = INITIAL_TEMP;
+        let waveActive = false;
+        let animationId = null;
+        let tempTarget = INITIAL_TEMP;
+        let clock = new THREE.Clock();
+        let waveFrequency = 2.45; // GHz
+        let waveAmplitude = 1.0;
+        let waveMesh;
+        let waveDirection = new THREE.Vector3(1, 0, 0);
+        
+        // DOM Elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const tempFill = document.getElementById('tempFill');
+        const tempText = document.getElementById('tempText');
+        const frequencyInput = document.getElementById('frequency');
+        const amplitudeInput = document.getElementById('amplitude');
+        const frequencyValue = document.getElementById('frequencyValue');
+        const amplitudeValue = document.getElementById('amplitudeValue');
+        
+        // Initialize Three.js scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111122);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 30);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Add orbit controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.25;
+            
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            // Add directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            // Create electromagnetic wave visualization
+            createWaveVisualization();
+            
+            // Create atoms
+            createAtoms();
+            
+            // Add event listeners
+            startBtn.addEventListener('click', startWave);
+            stopBtn.addEventListener('click', stopWave);
+            resetBtn.addEventListener('click', resetSimulation);
+            frequencyInput.addEventListener('input', updateWaveProperties);
+            amplitudeInput.addEventListener('input', updateWaveProperties);
+            window.addEventListener('resize', onWindowResize);
+            
+            // Start animation loop
+            animate();
+        }
+        
+        // Create electromagnetic wave visualization
+        function createWaveVisualization() {
+            const waveGeometry = new THREE.PlaneGeometry(40, 40);
+            const waveMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00aaff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.3,
+                wireframe: true
+            });
+            
+            waveMesh = new THREE.Mesh(waveGeometry, waveMaterial);
+            waveMesh.rotation.y = Math.PI / 2;
+            waveMesh.position.x = -20;
+            waveMesh.visible = false;
+            scene.add(waveMesh);
+        }
+        
+        // Create random atoms with dipole moments
+        function createAtoms() {
+            const atomGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const northMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const southMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+            
+            for (let i = 0; i < ATOM_COUNT; i++) {
+                // Position atom randomly in space
+                const posX = THREE.MathUtils.randFloatSpread(20);
+                const posY = THREE.MathUtils.randFloatSpread(10);
+                const posZ = THREE.MathUtils.randFloatSpread(10);
+                
+                // Create atom (sphere)
+                const atom = new THREE.Mesh(
+                    atomGeometry,
+                    new THREE.MeshPhongMaterial({ 
+                        color: getColorForTemp(INITIAL_TEMP),
+                        emissive: 0x000000,
+                        emissiveIntensity: 0.1,
+                        specular: 0x111111,
+                        shininess: 30
+                    })
+                );
+                atom.position.set(posX, posY, posZ);
+                
+                // Create north pole indicator (small sphere)
+                const northPole = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.2, 16, 16),
+                    northMaterial
+                );
+                northPole.position.set(0, 0.7, 0);
+                
+                // Create south pole indicator (small sphere)
+                const southPole = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.2, 16, 16),
+                    southMaterial
+                );
+                southPole.position.set(0, -0.7, 0);
+                
+                // Add poles to atom
+                atom.add(northPole);
+                atom.add(southPole);
+                
+                // Add atom to scene and atoms array
+                scene.add(atom);
+                atoms.push({
+                    mesh: atom,
+                    northPole: northPole,
+                    southPole: southPole,
+                    initialPosition: new THREE.Vector3(posX, posY, posZ),
+                    spinDirection: new THREE.Vector3(
+                        THREE.MathUtils.randFloat(-1, 1),
+                        THREE.MathUtils.randFloat(-1, 1),
+                        THREE.MathUtils.randFloat(-1, 1)
+                    ).normalize(),
+                    spinSpeed: THREE.MathUtils.randFloat(0.5, 2.0),
+                    currentSpinPhase: THREE.MathUtils.randFloat(0, Math.PI * 2)
+                });
+            }
+        }
+        
+        // Start wave effect
+        function startWave() {
+            waveActive = true;
+            waveMesh.visible = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            tempTarget = MAX_TEMP;
+        }
+        
+        // Stop wave effect
+        function stopWave() {
+            waveActive = false;
+            waveMesh.visible = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            tempTarget = THREE.MathUtils.clamp(temperature - 20, INITIAL_TEMP, MAX_TEMP);
+        }
+        
+        // Reset simulation
+        function resetSimulation() {
+            stopWave();
+            temperature = INITIAL_TEMP;
+            tempTarget = INITIAL_TEMP;
+            updateTemperatureDisplay();
+            
+            // Reset atom positions and orientations
+            atoms.forEach(atom => {
+                atom.mesh.position.copy(atom.initialPosition);
+                atom.currentSpinPhase = THREE.MathUtils.randFloat(0, Math.PI * 2);
+                atom.mesh.material.color.set(getColorForTemp(INITIAL_TEMP));
+            });
+        }
+        
+        // Update wave properties from UI controls
+        function updateWaveProperties() {
+            waveFrequency = parseFloat(frequencyInput.value);
+            waveAmplitude = parseFloat(amplitudeInput.value);
+            frequencyValue.textContent = waveFrequency.toFixed(2) + " GHz";
+            amplitudeValue.textContent = waveAmplitude.toFixed(1);
+        }
+        
+        // Update temperature gradient display
+        function updateTemperatureDisplay() {
+            const fillPercentage = ((temperature - INITIAL_TEMP) / (MAX_TEMP - INITIAL_TEMP)) * 100;
+            tempFill.style.width = `${fillPercentage}%`;
+            tempText.textContent = `${Math.round(temperature)}°C`;
+            
+            // Update atom colors
+            atoms.forEach(atom => {
+                atom.mesh.material.color.set(getColorForTemp(temperature));
+            });
+        }
+        
+        // Get color based on temperature
+        function getColorForTemp(temp) {
+            const normalizedTemp = (temp - INITIAL_TEMP) / (MAX_TEMP - INITIAL_TEMP);
+            const r = Math.min(255, 255 * normalizedTemp);
+            const g = Math.max(0, 255 * (1 - normalizedTemp));
+            const b = 0;
+            return new THREE.Color(r / 255, g / 255, b / 255);
+        }
+        
+        // Animation loop
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            const deltaTime = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+            
+            // Slowly adjust temperature toward target
+            if (Math.abs(temperature - tempTarget) > 0.1) {
+                temperature = THREE.MathUtils.lerp(temperature, tempTarget, deltaTime * 0.5);
+                updateTemperatureDisplay();
+            }
+            
+            // Update wave visualization
+            if (waveActive) {
+                waveMesh.position.x = Math.sin(elapsedTime * 2) * 5 - 15;
+                
+                // Animate wave mesh to show propagation
+                waveMesh.material.opacity = 0.3 + Math.sin(elapsedTime * 5) * 0.1;
+            }
+            
+            // Update atoms
+            atoms.forEach(atom => {
+                if (waveActive) {
+                    // Calculate wave effect at atom's position
+                    const wavePosition = atom.mesh.position.dot(waveDirection);
+                    const waveEffect = Math.sin(elapsedTime * waveFrequency * 2 * Math.PI + wavePosition * 2) * waveAmplitude;
+                    
+                    // Rotate atom based on wave effect
+                    atom.currentSpinPhase += deltaTime * waveFrequency * 2;
+                    const spinAngle = waveEffect * Math.PI;
+                    
+                    // Create quaternion for spin rotation
+                    const spinQuaternion = new THREE.Quaternion();
+                    spinQuaternion.setFromAxisAngle(atom.spinDirection, spinAngle);
+                    
+                    // Apply rotation to atom
+                    atom.mesh.quaternion.copy(spinQuaternion);
+                    
+                    // Highlight poles based on orientation
+                    const northY = atom.northPole.getWorldPosition(new THREE.Vector3()).y;
+                    const southY = atom.southPole.getWorldPosition(new THREE.Vector3()).y;
+                    
+                    if (northY > southY) {
+                        atom.northPole.material.color.setHex(0xff0000);
+                        atom.southPole.material.color.setHex(0x0000ff);
+                    } else {
+                        atom.northPole.material.color.setHex(0x0000ff);
+                        atom.southPole.material.color.setHex(0xff0000);
+                    }
+                } else {
+                    // Random thermal motion based on temperature
+                    const thermalMotion = (temperature / MAX_TEMP) * 0.05;
+                    atom.currentSpinPhase += THREE.MathUtils.randFloat(-thermalMotion, thermalMotion);
+                    
+                    // Apply small random rotation
+                    const randomRotation = new THREE.Quaternion();
+                    randomRotation.setFromAxisAngle(
+                        new THREE.Vector3(
+                            THREE.MathUtils.randFloat(-1, 1),
+                            THREE.MathUtils.randFloat(-1, 1),
+                            THREE.MathUtils.randFloat(-1, 1)
+                        ).normalize(),
+                        thermalMotion
+                    );
+                    atom.mesh.quaternion.multiply(randomRotation);
+                }
+            });
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Clean up on unmount
+        function cleanup() {
+            if (animationId) cancelAnimationFrame(animationId);
+            window.removeEventListener('resize', onWindowResize);
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+        window.addEventListener('beforeunload', cleanup);
+    </script>
+</body>
+</html>

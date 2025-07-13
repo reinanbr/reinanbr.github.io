@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SolidJS + Tailwind Counter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/solid-js@1.7.8/dist/solid.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/solid-js@1.7.8/html/dist/html.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vite@4.5.0/dist/client/env.mjs"></script>
+  <style>
+    .bg-gradient-radial {
+      background: radial-gradient(circle at center, #4f46e5 0%, #7c3aed 30%, #000000 70%);
+    }
+    .glow {
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+    }
+    .btn-transition {
+      transition: all 0.2s ease-in-out;
+    }
+    .btn-transition:hover {
+      transform: translateY(-2px);
+    }
+    .counter-display {
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-900 text-white">
+  <div id="app"></div>
+  
+  <script type="module">
+    const { createSignal, createEffect } = Solid;
+    const { render } = SolidDOM;
+    
+    function App() {
+      const [count, setCount] = createSignal(0);
+      const [themeColor, setThemeColor] = createSignal("indigo");
+      
+      const colors = [
+        { name: "Indigo", value: "indigo" },
+        { name: "Emerald", value: "emerald" },
+        { name: "Rose", value: "rose" },
+        { name: "Amber", value: "amber" },
+        { name: "Cyan", value: "cyan" }
+      ];
+      
+      const increment = () => {
+        setCount(c => c + 1);
+        pulseAnimation();
+      };
+      
+      const decrement = () => {
+        setCount(c => c - 1);
+        pulseAnimation();
+      };
+      
+      const reset = () => {
+        setCount(0);
+        pulseAnimation();
+      };
+      
+      const changeColor = (color) => {
+        setThemeColor(color);
+      };
+      
+      const pulseAnimation = () => {
+        const counter = document.getElementById('counter-display');
+        counter.classList.add('scale-110');
+        setTimeout(() => counter.classList.remove('scale-110'), 300);
+      };
+      
+      return html`
+        <div class="min-h-screen flex flex-col items-center justify-center p-4">
+          <div class="text-center max-w-md w-full">
+            <h1 class="text-4xl font-bold mb-2">SolidJS Counter</h1>
+            <p class="mb-8 text-gray-300">A minimal counter app with Tailwind CSS</p>
+            
+            <div 
+              id="counter-display"
+              class="counter-display rounded-xl p-8 mb-8 ${() => `bg-${themeColor()}-900 border-${themeColor()}-700 border-2 glow`}"
+            >
+              <div class="text-7xl font-bold ${() => `text-${themeColor()}-200`}">
+                ${count}
+              </div>
+            </div>
+            
+            <div class="flex justify-center gap-4 mb-8">
+              <button
+                onclick=${decrement}
+                class="btn-transition px-6 py-2 rounded-lg font-semibold ${() => `bg-${themeColor()}-700 hover:bg-${themeColor()}-600`} shadow-lg"
+              >
+                Decrease
+              </button>
+              <button
+                onclick=${increment}
+                class="btn-transition px-6 py-2 rounded-lg font-semibold ${() => `bg-${themeColor()}-700 hover:bg-${themeColor()}-600`} shadow-lg"
+              >
+                Increase
+              </button>
+            </div>
+            
+            <button
+              onclick=${reset}
+              class="btn-transition mb-8 px-4 py-2 rounded-lg font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 shadow-lg"
+            >
+              Reset Counter
+            </button>
+            
+            <div class="mb-8">
+              <h3 class="text-lg font-medium mb-3">Choose Theme Color</h3>
+              <div class="flex flex-wrap justify-center gap-2">
+                ${colors.map(color => html`
+                  <button
+                    onclick=${() => changeColor(color.value)}
+                    class="btn-transition px-4 py-2 rounded-lg font-medium ${() => 
+                      themeColor() === color.value 
+                        ? `bg-${color.value}-600 text-white` 
+                        : `bg-gray-800 text-gray-300`} shadow-md"
+                  >
+                    ${color.name}
+                  </button>
+                `)}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    render(() => html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microwave Atomic Spin Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background: #111;
+            color: white;
+        }
+        #container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        .temp-meter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .temp-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+            transition: width 0.5s;
+        }
+        .temp-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            text-shadow: 1px 1px 1px black;
+        }
+        .wave-visualization {
+            position: absolute;
+            bottom: 100px;
+            right: 20px;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="info">
+        <h2>Microwave Atomic Spin Simulation</h2>
+        <p>Watch atoms align and rotate with microwave frequency, increasing temperature</p>
+    </div>
+    
+    <div class="temp-meter">
+        <div class="temp-fill" id="tempFill"></div>
+        <div class="temp-text" id="tempText">0°C</div>
+    </div>
+    
+    <div class="wave-visualization" id="waveVisual"></div>
+    
+    <div id="controls">
+        <button id="startBtn">Start Microwave</button>
+        <button id="stopBtn" disabled>Stop Microwave</button>
+        <button id="resetBtn">Reset Simulation</button>
+    </div>
+
+    <script>
+        // Constants
+        const ATOM_COUNT = 50;
+        const INITIAL_TEMP = 20;
+        const MAX_TEMP = 100;
+        const MICROWAVE_FREQUENCY = 2.45; // GHz (standard microwave frequency)
+        
+        // Variables
+        let scene, camera, renderer;
+        let atoms = [];
+        let temperature = INITIAL_TEMP;
+        let microwaveOn = false;
+        let microwavePhase = 0;
+        let animationId = null;
+        let tempTarget = INITIAL_TEMP;
+        let clock = new THREE.Clock();
+        
+        // DOM Elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const tempFill = document.getElementById('tempFill');
+        const tempText = document.getElementById('tempText');
+        const waveVisual = document.getElementById('waveVisual');
+        
+        // Initialize Three.js scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111122);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 30);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Add orbit controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.25;
+            
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            // Add directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            // Create atoms
+            createAtoms();
+            
+            // Add event listeners
+            startBtn.addEventListener('click', startMicrowave);
+            stopBtn.addEventListener('click', stopMicrowave);
+            resetBtn.addEventListener('click', resetSimulation);
+            window.addEventListener('resize', onWindowResize);
+            
+            // Start animation loop
+            animate();
+        }
+        
+        // Create random atoms with dipole moments
+        function createAtoms() {
+            const atomGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const dipoleMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            
+            for (let i = 0; i < ATOM_COUNT; i++) {
+                // Position atom randomly in space
+                const posX = THREE.MathUtils.randFloatSpread(20);
+                const posY = THREE.MathUtils.randFloatSpread(20);
+                const posZ = THREE.MathUtils.randFloatSpread(20);
+                
+                // Create atom (sphere)
+                const atom = new THREE.Mesh(
+                    atomGeometry,
+                    new THREE.MeshPhongMaterial({ 
+                        color: getColorForTemp(INITIAL_TEMP),
+                        emissive: 0x000000,
+                        emissiveIntensity: 0.1,
+                        specular: 0x111111,
+                        shininess: 30
+                    })
+                );
+                atom.position.set(posX, posY, posZ);
+                
+                // Create dipole moment (line)
+                const dipole = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(0, 0, 0),
+                        new THREE.Vector3(0, 1, 0)
+                    ]),
+                    dipoleMaterial
+                );
+                dipole.rotation.x = THREE.MathUtils.randFloat(0, Math.PI * 2);
+                dipole.rotation.y = THREE.MathUtils.randFloat(0, Math.PI * 2);
+                
+                // Add dipole to atom (as child)
+                atom.add(dipole);
+                
+                // Add atom to scene and atoms array
+                scene.add(atom);
+                atoms.push({
+                    mesh: atom,
+                    dipole: dipole,
+                    initialOrientation: new THREE.Quaternion().copy(atom.quaternion),
+                    dipoleOrientation: new THREE.Quaternion().copy(dipole.quaternion),
+                    spinSpeed: THREE.MathUtils.randFloat(0.5, 2.0)
+                });
+            }
+        }
+        
+        // Start microwave effect
+        function startMicrowave() {
+            microwaveOn = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            tempTarget = MAX_TEMP;
+            updateWaveVisualization(true);
+        }
+        
+        // Stop microwave effect
+        function stopMicrowave() {
+            microwaveOn = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            tempTarget = THREE.MathUtils.clamp(temperature - 20, INITIAL_TEMP, MAX_TEMP);
+            updateWaveVisualization(false);
+        }
+        
+        // Reset simulation
+        function resetSimulation() {
+            stopMicrowave();
+            temperature = INITIAL_TEMP;
+            tempTarget = INITIAL_TEMP;
+            updateTemperatureDisplay();
+            
+            // Reset atom positions and orientations
+            atoms.forEach(atom => {
+                atom.mesh.quaternion.copy(atom.initialOrientation);
+                atom.dipole.quaternion.copy(atom.dipoleOrientation);
+            });
+        }
+        
+        // Update temperature gradient display
+        function updateTemperatureDisplay() {
+            const fillPercentage = ((temperature - INITIAL_TEMP) / (MAX_TEMP - INITIAL_TEMP)) * 100;
+            tempFill.style.width = `${fillPercentage}%`;
+            tempText.textContent = `${Math.round(temperature)}°C`;
+            
+            // Update atom colors
+            atoms.forEach(atom => {
+                atom.mesh.material.color.set(getColorForTemp(temperature));
+            });
+        }
+        
+        // Get color based on temperature
+        function getColorForTemp(temp) {
+            const normalizedTemp = (temp - INITIAL_TEMP) / (MAX_TEMP - INITIAL_TEMP);
+            const r = Math.min(255, 255 * normalizedTemp);
+            const g = Math.max(0, 255 * (1 - normalizedTemp));
+            const b = 0;
+            return new THREE.Color(r / 255, g / 255, b / 255);
+        }
+        
+        // Update microwave wave visualization
+        function updateWaveVisualization(on) {
+            if (on) {
+                waveVisual.style.animation = `pulse 0.5s infinite alternate`;
+                waveVisual.style.boxShadow = `0 0 20px 5px rgba(255, 100, 100, 0.7)`;
+            } else {
+                waveVisual.style.animation = 'none';
+                waveVisual.style.boxShadow = 'none';
+            }
+        }
+        
+        // Animation loop
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            const deltaTime = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+            
+            // Slowly adjust temperature toward target
+            if (Math.abs(temperature - tempTarget) > 0.1) {
+                temperature = THREE.MathUtils.lerp(temperature, tempTarget, deltaTime * 0.5);
+                updateTemperatureDisplay();
+            }
+            
+            // Update atoms
+            atoms.forEach(atom => {
+                if (microwaveOn) {
+                    // Apply microwave effect - making dipoles align and rotate
+                    const microwaveEffect = Math.sin(elapsedTime * MICROWAVE_FREQUENCY + atom.spinSpeed);
+                    
+                    // Rotate dipole around random axis based on microwave frequency
+                    const rotationAxis = new THREE.Vector3(
+                        Math.sin(atom.spinSpeed),
+                        Math.cos(atom.spinSpeed * 0.5),
+                        Math.sin(atom.spinSpeed * 0.3)
+                    ).normalize();
+                    
+                    atom.dipole.quaternion.setFromAxisAngle(
+                        rotationAxis,
+                        microwaveEffect * (0.5 + temperature / MAX_TEMP * 2)
+                    );
+                } else {
+                    // Random thermal motion based on temperature
+                    const thermalMotion = (temperature / MAX_TEMP) * 0.1;
+                    atom.dipole.rotation.x += THREE.MathUtils.randFloat(-thermalMotion, thermalMotion);
+                    atom.dipole.rotation.y += THREE.MathUtils.randFloat(-thermalMotion, thermalMotion);
+                }
+            });
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Clean up on unmount
+        function cleanup() {
+            if (animationId) cancelAnimationFrame(animationId);
+            window.removeEventListener('resize', onWindowResize);
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+        window.addEventListener('beforeunload', cleanup);
+        
+        // Add CSS animation for wave visualization
+        const styleElem = document.createElement('style');
+        styleElem.textContent = `
+            @keyframes pulse {
+                0% { transform: scale(1); opacity: 0.7; }
+                100% { transform: scale(1.2); opacity: 0.9; }
+            }
+        `;
+        document.head.appendChild(styleElem);
+    </script>
+</body>
+</html>

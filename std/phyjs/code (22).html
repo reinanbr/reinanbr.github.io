@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microwave Water Molecule Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #simulation-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            width: 90%;
+            max-width: 800px;
+        }
+        
+        #canvas-container {
+            margin: 20px 0;
+        }
+        
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 200px;
+        }
+        
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .explanation {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4f8;
+            border-radius: 5px;
+            width: 90%;
+            max-width: 800px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        h2 {
+            color: #3498db;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Microwave Water Molecule Simulation</h1>
+    
+    <div id="simulation-container">
+        <div id="canvas-container"></div>
+        
+        <div class="control-panel">
+            <div class="control-group">
+                <label for="power-slider">Microwave Power (%):</label>
+                <input type="range" id="power-slider" min="0" max="100" value="0">
+                <span id="power-value">0%</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="molecules-slider">Number of Molecules:</label>
+                <input type="range" id="molecules-slider" min="10" max="200" value="50">
+                <span id="molecules-value">50</span>
+            </div>
+            
+            <div class="control-group">
+                <button id="start-btn">Start Microwave</button>
+                <button id="reset-btn">Reset</button>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div>Average Energy</div>
+                <div class="stat-value" id="energy-value">0.00</div>
+            </div>
+            <div class="stat-item">
+                <div>Temperature (°C)</div>
+                <div class="stat-value" id="temp-value">20.0</div>
+            </div>
+            <div class="stat-item">
+                <div>Wave Frequency</div>
+                <div class="stat-value" id="freq-value">0 Hz</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="explanation">
+        <h2>How Microwaves Heat Water</h2>
+        <p>This simulation demonstrates how microwave ovens heat water by causing polar molecules (like water) to rotate:</p>
+        <ol>
+            <li><strong>Microwave Radiation:</strong> The oven emits electromagnetic waves (typically at 2.45 GHz).</li>
+            <li><strong>Molecular Alignment:</strong> Water molecules (H₂O) are polar - they have a positive and negative end.</li>
+            <li><strong>Rotation:</strong> The alternating electric field causes molecules to constantly realign (North-South, South-North).</li>
+            <li><strong>Friction:</strong> This rapid rotation creates molecular friction, which generates heat.</li>
+            <li><strong>Temperature Rise:</strong> As energy transfers to the molecules, the water temperature increases.</li>
+        </ol>
+        <p>Note: In reality, microwaves don't directly increase temperature - they increase molecular kinetic energy which manifests as heat.</p>
+    </div>
+
+    <script>
+        let canvas;
+        let molecules = [];
+        let microwaveOn = false;
+        let microwavePower = 0;
+        let time = 0;
+        let temperature = 20.0; // Starting at room temperature
+        let averageEnergy = 0;
+        let wavePhase = 0;
+        
+        // Colors for temperature visualization
+        const coldColor = [0, 100, 255]; // Blue
+        const hotColor = [255, 50, 50]; // Red
+        
+        class Molecule {
+            constructor() {
+                this.x = random(width);
+                this.y = random(height);
+                this.size = random(8, 12);
+                this.angle = random(TWO_PI);
+                this.energy = 0;
+                this.targetAngle = 0;
+                this.rotationSpeed = 0;
+                this.color = [0, 100, 255]; // Start blue (cold)
+            }
+            
+            update(waveStrength) {
+                // Calculate influence from microwave field
+                const fieldAngle = wavePhase; // Field direction changes with wave
+                const angleDiff = abs(this.angle - fieldAngle);
+                
+                // Molecules try to align with the field
+                this.targetAngle = fieldAngle;
+                
+                // The stronger the field, the faster they try to align
+                this.rotationSpeed = map(waveStrength, 0, 1, 0.01, 0.2) * 
+                                    (1 - min(angleDiff, PI)/PI);
+                
+                // Gradually rotate toward target
+                this.angle = lerp(this.angle, this.targetAngle, this.rotationSpeed);
+                
+                // Energy increases when molecule is forced to rotate against its current orientation
+                this.energy += abs(this.rotationSpeed) * waveStrength * 0.1;
+                
+                // Energy dissipates over time (heat transfer to surroundings)
+                this.energy *= 0.98;
+                
+                // Update color based on energy (temperature)
+                const energyRatio = min(this.energy / 10, 1);
+                this.color = [
+                    lerp(coldColor[0], hotColor[0], energyRatio),
+                    lerp(coldColor[1], hotColor[1], energyRatio),
+                    lerp(coldColor[2], hotColor[2], energyRatio)
+                ];
+            }
+            
+            display() {
+                push();
+                translate(this.x, this.y);
+                rotate(this.angle);
+                
+                // Draw molecule (oxygen atom)
+                fill(this.color);
+                noStroke();
+                ellipse(0, 0, this.size);
+                
+                // Draw hydrogen atoms (polar nature)
+                fill(200, 200, 255);
+                ellipse(-this.size/2, -this.size/3, this.size/2);
+                ellipse(this.size/2, this.size/3, this.size/2);
+                
+                // Show polarity with + and - signs
+                fill(255, 0, 0);
+                textSize(this.size/3);
+                textAlign(CENTER, CENTER);
+                text("+", 0, -this.size/4);
+                
+                fill(0, 0, 255);
+                text("-", 0, this.size/4);
+                
+                pop();
+            }
+        }
+        
+        function setup() {
+            canvas = createCanvas(700, 400);
+            canvas.parent('canvas-container');
+            
+            // Create initial molecules
+            createMolecules(50);
+            
+            // Setup UI controls
+            document.getElementById('power-slider').addEventListener('input', function() {
+                microwavePower = parseInt(this.value);
+                document.getElementById('power-value').textContent = this.value + '%';
+                document.getElementById('freq-value').textContent = 
+                    Math.round(2.45 * microwavePower/100 * 10)/10 + ' GHz';
+            });
+            
+            document.getElementById('molecules-slider').addEventListener('input', function() {
+                const num = parseInt(this.value);
+                document.getElementById('molecules-value').textContent = num;
+                createMolecules(num);
+            });
+            
+            document.getElementById('start-btn').addEventListener('click', function() {
+                microwaveOn = !microwaveOn;
+                this.textContent = microwaveOn ? 'Stop Microwave' : 'Start Microwave';
+            });
+            
+            document.getElementById('reset-btn').addEventListener('click', function() {
+                microwaveOn = false;
+                microwavePower = 0;
+                temperature = 20.0;
+                document.getElementById('power-slider').value = 0;
+                document.getElementById('power-value').textContent = '0%';
+                document.getElementById('start-btn').textContent = 'Start Microwave';
+                createMolecules(parseInt(document.getElementById('molecules-slider').value));
+            });
+        }
+        
+        function createMolecules(num) {
+            molecules = [];
+            for (let i = 0; i < num; i++) {
+                molecules.push(new Molecule());
+            }
+        }
+        
+        function draw() {
+            background(240);
+            
+            // Draw microwave chamber
+            fill(255);
+            stroke(100);
+            strokeWeight(2);
+            rect(10, 10, width-20, height-20, 10);
+            
+            // Draw microwave waves when active
+            if (microwaveOn && microwavePower > 0) {
+                drawMicrowaveField();
+            }
+            
+            // Update and display all molecules
+            let totalEnergy = 0;
+            const waveStrength = microwaveOn ? microwavePower/100 : 0;
+            
+            for (let mol of molecules) {
+                mol.update(waveStrength);
+                mol.display();
+                totalEnergy += mol.energy;
+            }
+            
+            // Calculate average energy and temperature
+            if (molecules.length > 0) {
+                averageEnergy = totalEnergy / molecules.length;
+                // Temperature is proportional to average molecular energy
+                temperature = 20.0 + averageEnergy * 30; // Scale factor to get reasonable temps
+                
+                // Update stats display
+                document.getElementById('energy-value').textContent = averageEnergy.toFixed(2);
+                document.getElementById('temp-value').textContent = temperature.toFixed(1);
+            }
+            
+            // Increment time for wave animation
+            if (microwaveOn && microwavePower > 0) {
+                time += 0.05 * microwavePower/100;
+                wavePhase = sin(time) * PI; // Oscillates between -PI and PI
+            }
+        }
+        
+        function drawMicrowaveField() {
+            // Draw the alternating electric field
+            const intensity = microwavePower/100 * 50;
+            const wavelength = 50;
+            const waveCount = 10;
+            
+            noFill();
+            stroke(255, 100, 100, 150);
+            strokeWeight(1);
+            
+            // Draw wave pattern
+            beginShape();
+            for (let x = 0; x <= width; x += 5) {
+                const y = height/2 + sin(x/wavelength * TWO_PI + time) * intensity;
+                vertex(x, y);
+            }
+            endShape();
+            
+            // Draw field direction indicator
+            push();
+            translate(width/2, height/2);
+            rotate(wavePhase);
+            
+            fill(255, 100, 100, 100);
+            noStroke();
+            ellipse(0, 0, intensity*2, intensity*2);
+            
+            stroke(255, 50, 50);
+            strokeWeight(2);
+            line(-intensity, 0, intensity, 0);
+            
+            // Draw field direction arrows
+            fill(255, 50, 50);
+            triangle(intensity-10, -5, intensity, 0, intensity-10, 5);
+            triangle(-intensity+10, -5, -intensity, 0, -intensity+10, 5);
+            
+            // Label field direction
+            textSize(14);
+            textAlign(CENTER, CENTER);
+            fill(200, 0, 0);
+            text("E-Field", 0, -20);
+            
+            pop();
+        }
+    </script>
+</body>
+</html>

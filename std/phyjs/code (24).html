@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Microwave Water Molecule Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background-color: #000;
+        }
+        
+        #simulation-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+            width: 300px;
+            color: white;
+            border: 1px solid #333;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        h2 {
+            margin-top: 0;
+            color: #4CAF50;
+            border-bottom: 1px solid #444;
+            padding-bottom: 8px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #ddd;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            background: #333;
+        }
+        
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 5px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        #explanation {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+            width: 300px;
+            max-height: 200px;
+            overflow-y: auto;
+            color: white;
+            border: 1px solid #333;
+        }
+        
+        #explanation h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div id="simulation-container">
+        <div id="canvas-container"></div>
+        
+        <div id="controls">
+            <h2>Microwave Simulation Controls</h2>
+            
+            <div class="control-group">
+                <label for="power-slider">Microwave Power: <span id="power-value">0</span>%</label>
+                <input type="range" id="power-slider" min="0" max="100" value="0">
+            </div>
+            
+            <div class="control-group">
+                <label for="molecules-slider">Molecule Count: <span id="molecules-value">50</span></label>
+                <input type="range" id="molecules-slider" min="10" max="200" value="50">
+            </div>
+            
+            <div class="control-group">
+                <button id="start-btn">Start Microwave</button>
+                <button id="reset-btn">Reset Simulation</button>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <div>Energy</div>
+                    <div class="stat-value" id="energy-value">0.00</div>
+                </div>
+                <div class="stat-item">
+                    <div>Temp (°C)</div>
+                    <div class="stat-value" id="temp-value">20.0</div>
+                </div>
+                <div class="stat-item">
+                    <div>Frequency</div>
+                    <div class="stat-value" id="freq-value">0 GHz</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="explanation">
+            <h3>How Microwaves Heat Water</h3>
+            <p>Microwaves cause polar water molecules to rotate rapidly as they try to align with the oscillating electromagnetic field. This molecular motion creates friction, which generates heat.</p>
+            <p>In this 3D simulation:</p>
+            <ul>
+                <li>Red/blue molecules show positive/negative charge distribution</li>
+                <li>The yellow wave represents the microwave's electric field</li>
+                <li>Molecules rotate to align with the changing field direction</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+        
+        // Camera setup
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 50);
+        
+        // Renderer setup
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        
+        // Enhanced lighting for dark background
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+        
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+        
+        // Simulation variables
+        let molecules = [];
+        let microwaveOn = false;
+        let microwavePower = 0;
+        let time = 0;
+        let temperature = 20.0;
+        let averageEnergy = 0;
+        let wavePhase = 0;
+        
+        // Create microwave chamber (more visible in dark mode)
+        const chamberGeometry = new THREE.BoxGeometry(30, 20, 30);
+        const chamberMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x333333,
+            transparent: true,
+            opacity: 0.3,
+            wireframe: true,
+            wireframeLinewidth: 2,
+            emissive: 0x111111
+        });
+        const chamber = new THREE.Mesh(chamberGeometry, chamberMaterial);
+        scene.add(chamber);
+        
+        // Create microwave field indicator (brighter in dark mode)
+        const fieldIndicator = new THREE.Group();
+        scene.add(fieldIndicator);
+        
+        const fieldArrowGeometry = new THREE.ConeGeometry(0.5, 2, 16);
+        const fieldArrowMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        
+        const fieldArrow1 = new THREE.Mesh(fieldArrowGeometry, fieldArrowMaterial);
+        fieldArrow1.position.x = 10;
+        fieldArrow1.rotation.z = Math.PI / 2;
+        fieldIndicator.add(fieldArrow1);
+        
+        const fieldArrow2 = new THREE.Mesh(fieldArrowGeometry, fieldArrowMaterial);
+        fieldArrow2.position.x = -10;
+        fieldArrow2.rotation.z = -Math.PI / 2;
+        fieldIndicator.add(fieldArrow2);
+        
+        const fieldLineGeometry = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-10, 0, 0),
+            new THREE.Vector3(10, 0, 0)
+        ]);
+        const fieldLineMaterial = new THREE.LineBasicMaterial({ 
+            color: 0xffff00, 
+            linewidth: 2 
+        });
+        const fieldLine = new THREE.Line(fieldLineGeometry, fieldLineMaterial);
+        fieldIndicator.add(fieldLine);
+        
+        // Create wave visualization (more visible in dark mode)
+        const wavePoints = [];
+        const waveCount = 30;
+        for (let i = 0; i <= waveCount; i++) {
+            wavePoints.push(new THREE.Vector3(
+                (i / waveCount) * 30 - 15,
+                0,
+                0
+            ));
+        }
+        
+        const waveGeometry = new THREE.BufferGeometry().setFromPoints(wavePoints);
+        const waveMaterial = new THREE.LineBasicMaterial({ 
+            color: 0xffff00,
+            linewidth: 2
+        });
+        const wave = new THREE.Line(waveGeometry, waveMaterial);
+        wave.position.y = -8;
+        wave.position.z = -12;
+        scene.add(wave);
+        
+        // Water molecule class with enhanced materials for dark background
+        class WaterMolecule {
+            constructor() {
+                this.group = new THREE.Group();
+                this.energy = 0;
+                this.targetRotation = new THREE.Quaternion();
+                this.rotationSpeed = 0;
+                
+                // Random position within chamber
+                const x = (Math.random() - 0.5) * 25;
+                const y = (Math.random() - 0.5) * 15;
+                const z = (Math.random() - 0.5) * 25;
+                this.group.position.set(x, y, z);
+                
+                // Oxygen atom (larger sphere)
+                const oxygenGeometry = new THREE.SphereGeometry(0.8, 32, 32);
+                const oxygenMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x3399ff,
+                    emissive: 0x000044,
+                    specular: 0x111111,
+                    shininess: 30
+                });
+                this.oxygen = new THREE.Mesh(oxygenGeometry, oxygenMaterial);
+                this.group.add(this.oxygen);
+                
+                // Hydrogen atoms (smaller spheres)
+                const hydrogenGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+                const hydrogenMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xffffff,
+                    emissive: 0x222222,
+                    specular: 0x111111,
+                    shininess: 30
+                });
+                
+                this.hydrogen1 = new THREE.Mesh(hydrogenGeometry, hydrogenMaterial);
+                this.hydrogen1.position.set(-1, 0.6, 0);
+                this.group.add(this.hydrogen1);
+                
+                this.hydrogen2 = new THREE.Mesh(hydrogenGeometry, hydrogenMaterial);
+                this.hydrogen2.position.set(1, 0.6, 0);
+                this.group.add(this.hydrogen2);
+                
+                // Charge indicators (brighter in dark mode)
+                const positiveGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+                const positiveMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0xff4444,
+                    emissive: 0x440000
+                });
+                this.positiveCharge = new THREE.Mesh(positiveGeometry, positiveMaterial);
+                this.positiveCharge.position.set(0, -1, 0);
+                this.group.add(this.positiveCharge);
+                
+                const negativeGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+                const negativeMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0x4444ff,
+                    emissive: 0x000044
+                });
+                this.negativeCharge = new THREE.Mesh(negativeGeometry, negativeMaterial);
+                this.negativeCharge.position.set(0, 1, 0);
+                this.group.add(this.negativeCharge);
+                
+                // Initial random rotation
+                this.group.rotation.set(
+                    Math.random() * Math.PI * 2,
+                    Math.random() * Math.PI * 2,
+                    Math.random() * Math.PI * 2
+                );
+                
+                scene.add(this.group);
+            }
+            
+            update(waveStrength) {
+                // Calculate influence from microwave field
+                const fieldDirection = new THREE.Vector3(1, 0, 0);
+                fieldDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), wavePhase);
+                
+                // Get molecule's current orientation (simplified)
+                const moleculeUp = new THREE.Vector3(0, 1, 0);
+                moleculeUp.applyQuaternion(this.group.quaternion);
+                
+                // Calculate how aligned the molecule is with the field
+                const alignment = moleculeUp.dot(fieldDirection);
+                
+                // The stronger the field, the faster they try to align
+                this.rotationSpeed = waveStrength * 0.05 * (1 - Math.abs(alignment));
+                
+                // Set target rotation to align with field
+                const targetQuaternion = new THREE.Quaternion();
+                targetQuaternion.setFromUnitVectors(
+                    moleculeUp,
+                    fieldDirection
+                );
+                this.targetRotation.multiplyQuaternions(targetQuaternion, this.group.quaternion);
+                
+                // Gradually rotate toward target
+                this.group.quaternion.slerp(this.targetRotation, this.rotationSpeed);
+                
+                // Energy increases when molecule is forced to rotate
+                this.energy += this.rotationSpeed * waveStrength * 0.1;
+                
+                // Energy dissipates over time (heat transfer to surroundings)
+                this.energy *= 0.98;
+                
+                // Visual feedback - change color based on energy
+                const energyRatio = Math.min(this.energy / 10, 1);
+                this.oxygen.material.color.lerp(
+                    new THREE.Color(0x3399ff),
+                    new THREE.Color(0xff3333),
+                    energyRatio
+                );
+                this.oxygen.material.emissive.lerp(
+                    new THREE.Color(0x000044),
+                    new THREE.Color(0x440000),
+                    energyRatio
+                );
+                
+                // Make hydrogen atoms glow when hot
+                this.hydrogen1.material.emissive.lerp(
+                    new THREE.Color(0x222222),
+                    new THREE.Color(0x888888),
+                    energyRatio
+                );
+                this.hydrogen2.material.emissive.lerp(
+                    new THREE.Color(0x222222),
+                    new THREE.Color(0x888888),
+                    energyRatio
+                );
+            }
+        }
+        
+        // Create initial molecules
+        function createMolecules(count) {
+            // Remove existing molecules
+            molecules.forEach(mol => {
+                scene.remove(mol.group);
+            });
+            molecules = [];
+            
+            // Create new molecules
+            for (let i = 0; i < count; i++) {
+                molecules.push(new WaterMolecule());
+            }
+        }
+        
+        // Setup controls
+        document.getElementById('power-slider').addEventListener('input', function() {
+            microwavePower = parseInt(this.value);
+            document.getElementById('power-value').textContent = this.value;
+            document.getElementById('freq-value').textContent = 
+                (2.45 * microwavePower/100).toFixed(1) + ' GHz';
+        });
+        
+        document.getElementById('molecules-slider').addEventListener('input', function() {
+            const num = parseInt(this.value);
+            document.getElementById('molecules-value').textContent = num;
+            createMolecules(num);
+        });
+        
+        document.getElementById('start-btn').addEventListener('click', function() {
+            microwaveOn = !microwaveOn;
+            this.textContent = microwaveOn ? 'Stop Microwave' : 'Start Microwave';
+        });
+        
+        document.getElementById('reset-btn').addEventListener('click', function() {
+            microwaveOn = false;
+            microwavePower = 0;
+            temperature = 20.0;
+            document.getElementById('power-slider').value = 0;
+            document.getElementById('power-value').textContent = '0';
+            document.getElementById('start-btn').textContent = 'Start Microwave';
+            document.getElementById('freq-value').textContent = '0 GHz';
+            createMolecules(parseInt(document.getElementById('molecules-slider').value));
+        });
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update simulation
+            if (microwaveOn && microwavePower > 0) {
+                time += 0.02 * microwavePower/100;
+                wavePhase = Math.sin(time) * Math.PI;
+                
+                // Update wave visualization
+                const wavePoints = wave.geometry.attributes.position;
+                for (let i = 0; i <= waveCount; i++) {
+                    const x = (i / waveCount) * 30 - 15;
+                    wavePoints.setY(i, Math.sin(x * 0.5 + time * 2) * 3 * microwavePower/100);
+                }
+                wavePoints.needsUpdate = true;
+                
+                // Update field indicator rotation
+                fieldIndicator.rotation.y = wavePhase;
+                
+                // Make chamber glow slightly when microwave is on
+                chamber.material.emissive.lerp(
+                    new THREE.Color(0x111111),
+                    new THREE.Color(0x333311),
+                    microwavePower/200
+                );
+            } else {
+                // Reset chamber glow when microwave is off
+                chamber.material.emissive.lerp(
+                    chamber.material.emissive,
+                    new THREE.Color(0x111111),
+                    0.1
+                );
+            }
+            
+            // Update all molecules
+            let totalEnergy = 0;
+            const waveStrength = microwaveOn ? microwavePower/100 : 0;
+            
+            molecules.forEach(mol => {
+                mol.update(waveStrength);
+                totalEnergy += mol.energy;
+            });
+            
+            // Calculate average energy and temperature
+            if (molecules.length > 0) {
+                averageEnergy = totalEnergy / molecules.length;
+                temperature = 20.0 + averageEnergy * 30;
+                
+                // Update stats display
+                document.getElementById('energy-value').textContent = averageEnergy.toFixed(2);
+                document.getElementById('temp-value').textContent = temperature

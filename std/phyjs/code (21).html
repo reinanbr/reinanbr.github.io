@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microwave Particle Excitation Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            background-color: #111;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+        .container {
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+        .description {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            margin: 0 10px;
+        }
+        label {
+            margin-right: 8px;
+            width: 100px;
+            text-align: right;
+        }
+        .disclaimer {
+            font-size: 12px;
+            color: #777;
+            margin-top: 20px;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Microwave Particle Excitation Simulation</h1>
+        <p class="description">
+            This simulation demonstrates how microwave fields interact with molecules by flipping their dipole moments.
+            As the wave (green) passes through particles, it alternates their spin orientation.
+        </p>
+        <div id="canvas-container"></div>
+        <div class="controls">
+            <button id="startBtn">Start</button>
+            <button id="stopBtn">Stop</button>
+            <button id="resetBtn">Reset</button>
+            
+            <div class="slider-container">
+                <label for="frequencySlider">Frequency:</label>
+                <input type="range" id="frequencySlider" min="0.5" max="5" step="0.1" value="1.5">
+                <span id="frequencyValue">1.5 Hz</span>
+            </div>
+            
+            <div class="slider-container">
+                <label for="amplitudeSlider">Amplitude:</label>
+                <input type="range" id="amplitudeSlider" min="10" max="100" step="5" value="50">
+                <span id="amplitudeValue">50</span>
+            </div>
+        </div>
+        <p class="disclaimer">
+            Note: This is a simplified visualization. In real microwave heating, the effect depends on the material's molecular structure and dielectric properties.
+        </p>
+    </div>
+
+    <script>
+        let particles = [];
+        let wave;
+        let simulationRunning = false;
+        let frequency = 1.5;
+        let amplitude = 50;
+        
+        function setup() {
+            const container = document.getElementById('canvas-container');
+            const canvasWidth = Math.min(800, window.innerWidth - 40);
+            const canvasHeight = 400;
+            
+            let canvas = createCanvas(canvasWidth, canvasHeight);
+            canvas.parent('canvas-container');
+            
+            // Initialize particles in a grid
+            const particleSize = 15;
+            const spacing = 30;
+            const gridWidth = Math.floor((width - 100) / spacing);
+            const gridHeight = Math.floor((height - 100) / spacing);
+            
+            for (let x = 0; x < gridWidth; x++) {
+                for (let y = 0; y < gridHeight; y++) {
+                    particles.push(new Particle(
+                        50 + x * spacing,
+                        50 + y * spacing,
+                        particleSize,
+                        y % 2 === 0 ? 1 : -1  // Alternate initial spins
+                    ));
+                }
+            }
+            
+            wave = new Wave();
+            
+            // Setup controls
+            document.getElementById('startBtn').addEventListener('click', () => {
+                simulationRunning = true;
+                loop();
+            });
+            
+            document.getElementById('stopBtn').addEventListener('click', () => {
+                simulationRunning = false;
+                noLoop();
+            });
+            
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                simulationRunning = false;
+                noLoop();
+                wave.reset();
+                particles.forEach(p => p.reset());
+                redraw();
+            });
+            
+            const frequencySlider = document.getElementById('frequencySlider');
+            const amplitudeSlider = document.getElementById('amplitudeSlider');
+            
+            frequencySlider.addEventListener('input', (e) => {
+                frequency = parseFloat(e.target.value);
+                document.getElementById('frequencyValue').textContent = frequency.toFixed(1) + ' Hz';
+                wave.setFrequency(frequency);
+            });
+            
+            amplitudeSlider.addEventListener('input', (e) => {
+                amplitude = parseInt(e.target.value);
+                document.getElementById('amplitudeValue').textContent = amplitude;
+                wave.setAmplitude(amplitude);
+            });
+            
+            // Initial draw
+            noLoop();
+        }
+        
+        function draw() {
+            background(15, 20, 30);
+            
+            // Update and display particles
+            particles.forEach(particle => {
+                particle.update(wave);
+                particle.display();
+            });
+            
+            // Update and display wave
+            wave.update();
+            wave.display();
+            
+            // Draw explanatory labels
+            drawLabels();
+        }
+        
+        function drawLabels() {
+            fill(255);
+            noStroke();
+            textSize(12);
+            textAlign(LEFT, TOP);
+            text('Wave Direction →', width - 150, 20);
+            text('Spin States:', 20, 20);
+            
+            // Legend for spin states
+            fill(100, 200, 255);
+            text('↑ Positive dipole', 20, 40);
+            fill(255, 100, 100);
+            text('↓ Negative dipole', 20, 60);
+        }
+        
+        class Particle {
+            constructor(x, y, size, spin) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.originalSpin = spin;
+                this.spin = spin;
+                this.excited = false;
+                this.excitationTime = 0;
+            }
+            
+            update(wave) {
+                const distanceToWave = dist(this.x, this.y, wave.x + wave.width/2, this.y);
+                
+                // If wave is near the particle
+                if (distanceToWave < wave.width/2) {
+                    const wavePhase = wave.getPhaseAt(this.x, this.y);
+                    
+                    // Flip spin based on wave phase (sinusoidal excitation)
+                    if (abs(wavePhase) > 0.7) {
+                        if (!this.excited) {
+                            this.spin = -this.spin;  // Flip the spin
+                            this.excited = true;
+                            this.excitationTime = millis();
+                        }
+                    } else {
+                        this.excited = false;
+                    }
+                }
+            }
+            
+            display() {
+                // Draw particle circle
+                stroke(80);
+                strokeWeight(1);
+                
+                // Color based on spin state
+                if (this.spin > 0) {
+                    fill(100, 200, 255);  // Blue-ish for positive
+                } else {
+                    fill(255, 100, 100);  // Red-ish for negative
+                }
+                
+                ellipse(this.x, this.y, this.size);
+                
+                // Draw spin indicator (arrow)
+                stroke(255);
+                strokeWeight(2);
+                const arrowSize = this.size * 0.6;
+                line(this.x, this.y, this.x, this.y - this.spin * arrowSize/2);
+                
+                // Arrowhead
+                if (this.spin > 0) {
+                    line(this.x, this.y - arrowSize/2, this.x - 3, this.y - arrowSize/2 + 5);
+                    line(this.x, this.y - arrowSize/2, this.x + 3, this.y - arrowSize/2 + 5);
+                } else {
+                    line(this.x, this.y + arrowSize/2, this.x - 3, this.y + arrowSize/2 - 5);
+                    line(this.x, this.y + arrowSize/2, this.x + 3, this.y + arrowSize/2 - 5);
+                }
+            }
+            
+            reset() {
+                this.spin = this.originalSpin;
+                this.excited = false;
+            }
+        }
+        
+        class Wave {
+            constructor() {
+                this.reset();
+                this.amplitude = 50;
+                this.width = 80;
+                this.frequency = 1.5;
+                this.phase = 0;
+                this.speed = 0.5;
+            }
+            
+            reset() {
+                this.x = -100;
+                this.lastUpdate = millis();
+                this.phase = 0;
+            }
+            
+            setFrequency(freq) {
+                this.frequency = freq;
+            }
+            
+            setAmplitude(amp) {
+                this.amplitude = amp;
+            }
+            
+            update() {
+                if (!simulationRunning) return;
+                
+                const now = millis();
+                const deltaTime = (now - this.lastUpdate) / 1000; // Convert to seconds
+                this.lastUpdate = now;
+                
+                // Move wave forward
+                this.x += deltaTime * 100 * this.speed;
+                
+                // Update wave phase for oscillation
+                this.phase += deltaTime * TWO_PI * this.frequency;
+                
+                // Reset wave position when it goes off screen
+                if (this.x > width + this.width) {
+                    this.x = -this.width;
+                }
+            }
+            
+            display() {
+                // Draw wave envelope
+                noFill();
+                stroke(100, 255, 100, 150);
+                strokeWeight(2);
+                rect(this.x, 0, this.width, height);
+                
+                // Draw sinusoidal wave representation inside the envelope
+                beginShape();
+                stroke(100, 255, 100);
+                strokeWeight(1.5);
+                noFill();
+                
+                const steps = 20;
+                const step = this.width / steps;
+                for (let i = 0; i <= steps; i++) {
+                    const x = this.x + i * step;
+                    const yOffset = sin(this.phase + i * 0.3) * this.amplitude;
+                    vertex(x, height/2 + yOffset);
+                }
+                endShape();
+            }
+            
+            getPhaseAt(px, py) {
+                if (px < this.x || px > this.x + this.width) return 0;
+                const relativePos = (px - this.x) / this.width;
+                return sin(this.phase + relativePos * PI);
+            }
+        }
+    </script>
+</body>
+</html>

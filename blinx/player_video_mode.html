@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambient Mode Video Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #121212;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.5s ease;
+            overflow: hidden;
+        }
+
+        .ambient-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.25;
+            filter: blur(80px) saturate(1.2);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 20px;
+        }
+
+        .ambient-overlay::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            right: -50px;
+            bottom: -50px;
+            background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            border-radius: 30px;
+            filter: blur(20px);
+            z-index: -1;
+        }
+
+        .ambient-overlay::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+            border-radius: 20px;
+            z-index: -1;
+        }
+
+        /* Ambient Light Sources */
+        .ambient-lights {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .light-source {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0;
+            transition: all 0.6s ease;
+        }
+
+        .light-source.top-left {
+            top: -100px;
+            left: -100px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+        }
+
+        .light-source.top-right {
+            top: -100px;
+            right: -100px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+        }
+
+        .light-source.bottom-left {
+            bottom: -100px;
+            left: -100px;
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        }
+
+        .light-source.bottom-right {
+            bottom: -100px;
+            right: -100px;
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+        }
+
+        .light-source.center {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 60%);
+        }
+
+        /* Additional edge lights */
+        .light-source.top-edge-1 {
+            top: -80px;
+            left: 20%;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+        }
+
+        .light-source.top-edge-2 {
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+        }
+
+        .light-source.top-edge-3 {
+            top: -80px;
+            right: 20%;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+        }
+
+        .light-source.bottom-edge-1 {
+            bottom: -80px;
+            left: 20%;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        }
+
+        .light-source.bottom-edge-2 {
+            bottom: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.13) 0%, transparent 70%);
+        }
+
+        .light-source.bottom-edge-3 {
+            bottom: -80px;
+            right: 20%;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        }
+
+        /* Side edge lights */
+        .light-source.left-edge-1 {
+            top: 30%;
+            left: -80px;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+        }
+
+        .light-source.left-edge-2 {
+            top: 60%;
+            left: -80px;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+        }
+
+        .light-source.right-edge-1 {
+            top: 30%;
+            right: -80px;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+        }
+
+        .light-source.right-edge-2 {
+            top: 60%;
+            right: -80px;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+        }
+
+        /* Dynamic Shadow Effects */
+        .dynamic-shadow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 70%);
+            border-radius: 20px;
+            opacity: 0;
+            transition: all 0.8s ease;
+            mix-blend-mode: multiply;
+            --primary-shadow: rgba(0, 0, 0, 0.3);
+            --complementary-shadow: rgba(0, 0, 0, 0.2);
+            --neutral-shadow: rgba(0, 0, 0, 0.4);
+        }
+
+        .dynamic-shadow::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 0%, var(--primary-shadow) 60%);
+            border-radius: 20px;
+            z-index: -1;
+            mix-blend-mode: multiply;
+        }
+
+        .dynamic-shadow::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 0%, var(--complementary-shadow) 50%);
+            border-radius: 20px;
+            z-index: -1;
+            mix-blend-mode: overlay;
+        }
+
+        .player-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+        }
+
+        .player-container::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
+            background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+            border-radius: 30px;
+            z-index: -2;
+            pointer-events: none;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .video-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, 
+                rgba(255, 255, 255, 0.05) 0%, 
+                transparent 20%, 
+                transparent 80%, 
+                rgba(255, 255, 255, 0.05) 100%);
+            border-radius: 20px;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        video {
+            width: 100%;
+            display: block;
+        }
+
+        .controls {
+            width: 100%;
+            max-width: 1000px;
+            background: linear-gradient(135deg, 
+                rgba(30, 30, 30, 0.9) 0%, 
+                rgba(20, 20, 20, 0.95) 100%);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+            backdrop-filter: blur(15px);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress {
+            height: 100%;
+            background-color: #ff5e5e;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s;
+            position: relative;
+        }
+
+        .progress::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 10px;
+            height: 10px;
+            background-color: #ff5e5e;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .progress-container:hover .progress::after {
+            opacity: 1;
+        }
+
+        /* Video Preview System */
+        .video-preview {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 160px;
+            height: 90px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .video-preview.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .video-preview canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .preview-time {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: monospace;
+        }
+
+        .preview-indicator {
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .preview-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid #ff5e5e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .preview-loading.active {
+            opacity: 1;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .control-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+        }
+
+        .left-controls, .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 5px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            color: #ff5e5e;
+            transform: scale(1.1);
+        }
+
+        .time-display {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            font-family: monospace;
+        }
+
+        .volume-container {
+            display: flex;
+            align-items: center;
+            width: 100px;
+        }
+
+        .volume-slider {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .volume-container:hover .volume-slider {
+            opacity: 1;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background-color: #ff5e5e;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .fullscreen-btn {
+            font-size: 20px;
+        }
+
+        .quality-selector {
+            position: relative;
+            margin-left: 10px;
+        }
+
+        .quality-btn {
+            font-size: 16px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        h1 span {
+            color: #ff5e5e;
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-overlay" id="ambientOverlay"></div>
+    
+    <div class="player-container">
+        <h1>Reprodutor no <span>Modo</span> Ambiente</h1>
+        
+        <div class="video-container">
+            <div class="dynamic-shadow" id="dynamicShadow"></div>
+            <div class="ambient-lights" id="ambientLights">
+                <div class="light-source top-left" id="lightTopLeft"></div>
+                <div class="light-source top-right" id="lightTopRight"></div>
+                <div class="light-source bottom-left" id="lightBottomLeft"></div>
+                <div class="light-source bottom-right" id="lightBottomRight"></div>
+                <div class="light-source center" id="lightCenter"></div>
+                
+                <!-- Top edge lights -->
+                <div class="light-source top-edge-1" id="lightTopEdge1"></div>
+                <div class="light-source top-edge-2" id="lightTopEdge2"></div>
+                <div class="light-source top-edge-3" id="lightTopEdge3"></div>
+                
+                <!-- Bottom edge lights -->
+                <div class="light-source bottom-edge-1" id="lightBottomEdge1"></div>
+                <div class="light-source bottom-edge-2" id="lightBottomEdge2"></div>
+                <div class="light-source bottom-edge-3" id="lightBottomEdge3"></div>
+                
+                <!-- Side edge lights -->
+                <div class="light-source left-edge-1" id="lightLeftEdge1"></div>
+                <div class="light-source left-edge-2" id="lightLeftEdge2"></div>
+                <div class="light-source right-edge-1" id="lightRightEdge1"></div>
+                <div class="light-source right-edge-2" id="lightRightEdge2"></div>
+            </div>
+            <video id="video" crossorigin="anonymous">
+                <!-- CORS-friendly demo video that works with file:// protocol -->
+                <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+                <!-- Local video file (requires HTTP server) -->
+                <source src="../assets/video/sample.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        
+        <div class="controls">
+            <div class="progress-container" id="progressContainer">
+                <div class="progress" id="progress"></div>
+                <div class="video-preview" id="videoPreview">
+                    <canvas id="previewCanvas"></canvas>
+                    <div class="preview-time" id="previewTime">00:00</div>
+                    <div class="preview-indicator"></div>
+                    <div class="preview-loading" id="previewLoading"></div>
+                </div>
+            </div>
+            
+            <div class="control-buttons">
+                <div class="left-controls">
+                    <button id="playBtn"><i class="fas fa-play"></i></button>
+                    <div class="time-display">
+                        <span id="currentTime">00:00</span> / <span id="duration">00:00</span>
+                    </div>
+                </div>
+                
+                <div class="right-controls">
+                    <div class="volume-container">
+                        <button id="muteBtn"><i class="fas fa-volume-up"></i></button>
+                        <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.01" value="1">
+                    </div>
+                    <button id="pipBtn"><i class="fas fa-compress-alt"></i></button>
+                    <button id="fullscreenBtn" class="fullscreen-btn"><i class="fas fa-expand"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('video');
+            const playBtn = document.getElementById('playBtn');
+            const progress = document.getElementById('progress');
+            const progressContainer = document.getElementById('progressContainer');
+            const currentTimeDisplay = document.getElementById('currentTime');
+            const durationDisplay = document.getElementById('duration');
+            const volumeSlider = document.getElementById('volumeSlider');
+            const muteBtn = document.getElementById('muteBtn');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const pipBtn = document.getElementById('pipBtn');
+            const ambientOverlay = document.getElementById('ambientOverlay');
+            const videoContainer = document.querySelector('.video-container');
+            const dynamicShadow = document.getElementById('dynamicShadow');
+            const ambientLights = document.getElementById('ambientLights');
+            const lightTopLeft = document.getElementById('lightTopLeft');
+            const lightTopRight = document.getElementById('lightTopRight');
+            const lightBottomLeft = document.getElementById('lightBottomLeft');
+            const lightBottomRight = document.getElementById('lightBottomRight');
+            const lightCenter = document.getElementById('lightCenter');
+            
+            // Video preview system
+            const videoPreview = document.getElementById('videoPreview');
+            const previewCanvas = document.getElementById('previewCanvas');
+            const previewTime = document.getElementById('previewTime');
+            const previewCtx = previewCanvas.getContext('2d');
+            const previewLoading = document.getElementById('previewLoading');
+            
+            // New edge lights
+            const lightTopEdge1 = document.getElementById('lightTopEdge1');
+            const lightTopEdge2 = document.getElementById('lightTopEdge2');
+            const lightTopEdge3 = document.getElementById('lightTopEdge3');
+            const lightBottomEdge1 = document.getElementById('lightBottomEdge1');
+            const lightBottomEdge2 = document.getElementById('lightBottomEdge2');
+            const lightBottomEdge3 = document.getElementById('lightBottomEdge3');
+            const lightLeftEdge1 = document.getElementById('lightLeftEdge1');
+            const lightLeftEdge2 = document.getElementById('lightLeftEdge2');
+            const lightRightEdge1 = document.getElementById('lightRightEdge1');
+            const lightRightEdge2 = document.getElementById('lightRightEdge2');
+            
+            // Ambient lighting system
+            let lightIntensity = 0;
+            let isPlaying = false;
+            
+            // Video preview system variables
+            let previewTimeout;
+            let isPreviewActive = false;
+            
+            // Initialize ambient lights
+            function initAmbientLights() {
+                setTimeout(() => {
+                    // Corner lights
+                    lightTopLeft.style.opacity = '1';
+                    lightTopRight.style.opacity = '1';
+                    lightBottomLeft.style.opacity = '1';
+                    lightBottomRight.style.opacity = '1';
+                    lightCenter.style.opacity = '1';
+                    
+                    // Top edge lights
+                    lightTopEdge1.style.opacity = '1';
+                    lightTopEdge2.style.opacity = '1';
+                    lightTopEdge3.style.opacity = '1';
+                    
+                    // Bottom edge lights
+                    lightBottomEdge1.style.opacity = '1';
+                    lightBottomEdge2.style.opacity = '1';
+                    lightBottomEdge3.style.opacity = '1';
+                    
+                    // Side edge lights
+                    lightLeftEdge1.style.opacity = '1';
+                    lightLeftEdge2.style.opacity = '1';
+                    lightRightEdge1.style.opacity = '1';
+                    lightRightEdge2.style.opacity = '1';
+                }, 500);
+            }
+            
+            // Dynamic lighting based on video content
+            function updateAmbientLights(brightness, color) {
+                const intensity = Math.min(brightness * 0.8, 1);
+                const [r, g, b] = color;
+                
+                // Update corner light intensities based on video brightness
+                lightTopLeft.style.opacity = intensity * 0.8;
+                lightTopRight.style.opacity = intensity * 0.7;
+                lightBottomLeft.style.opacity = intensity * 0.6;
+                lightBottomRight.style.opacity = intensity * 0.5;
+                lightCenter.style.opacity = intensity * 0.4;
+                
+                // Note: Edge light intensities are now controlled by adjustEdgeLightingByBrightness()
+                // Only update colors, not intensities
+                
+                // Update light colors based on video content
+                const lightColor = `rgba(${r}, ${g}, ${b}, 0.1)`;
+                const edgeLightColor = `rgba(${r}, ${g}, ${b}, 0.15)`;
+                const sideLightColor = `rgba(${r}, ${g}, ${b}, 0.08)`;
+                
+                // Corner lights
+                lightTopLeft.style.background = `radial-gradient(circle, ${lightColor} 0%, transparent 70%)`;
+                lightTopRight.style.background = `radial-gradient(circle, ${lightColor} 0%, transparent 70%)`;
+                lightBottomLeft.style.background = `radial-gradient(circle, ${lightColor} 0%, transparent 70%)`;
+                lightBottomRight.style.background = `radial-gradient(circle, ${lightColor} 0%, transparent 70%)`;
+                lightCenter.style.background = `radial-gradient(circle, ${lightColor} 0%, transparent 60%)`;
+                
+                // Top edge lights
+                lightTopEdge1.style.background = `radial-gradient(circle, ${edgeLightColor} 0%, transparent 70%)`;
+                lightTopEdge2.style.background = `radial-gradient(circle, ${edgeLightColor} 0%, transparent 70%)`;
+                lightTopEdge3.style.background = `radial-gradient(circle, ${edgeLightColor} 0%, transparent 70%)`;
+                
+                // Bottom edge lights
+                lightBottomEdge1.style.background = `radial-gradient(circle, ${edgeLightColor} 0%, transparent 70%)`;
+                lightBottomEdge2.style.background = `radial-gradient(circle, ${edgeLightColor} 0%, transparent 70%)`;
+                lightBottomEdge3.style.background = `radial-gradient(circle, ${edgeLightColor} 0%, transparent 70%)`;
+                
+                // Side edge lights
+                lightLeftEdge1.style.background = `radial-gradient(circle, ${sideLightColor} 0%, transparent 70%)`;
+                lightLeftEdge2.style.background = `radial-gradient(circle, ${sideLightColor} 0%, transparent 70%)`;
+                lightRightEdge1.style.background = `radial-gradient(circle, ${sideLightColor} 0%, transparent 70%)`;
+                lightRightEdge2.style.background = `radial-gradient(circle, ${sideLightColor} 0%, transparent 70%)`;
+                
+                // Update dynamic colored shadow based on video content
+                updateColoredShadow(color, brightness);
+            }
+            
+            // Create colored shadow effect
+            function updateColoredShadow(color, brightness) {
+                const [r, g, b] = color;
+                const shadowIntensity = Math.max(0.1, 0.4 - brightness * 0.3);
+                
+                // Use dominant colors for shadow effects
+                let primaryShadowColor, complementaryShadowColor, accentShadowColor;
+                
+                if (dominantColors.length >= 2) {
+                    // Use first dominant color as primary shadow
+                    const primary = dominantColors[0];
+                    primaryShadowColor = `rgba(${Math.floor(primary.r * 0.15)}, ${Math.floor(primary.g * 0.15)}, ${Math.floor(primary.b * 0.15)}, ${shadowIntensity * 0.9})`;
+                    
+                    // Use second dominant color as complementary shadow
+                    const secondary = dominantColors[1];
+                    complementaryShadowColor = `rgba(${Math.floor(secondary.r * 0.2)}, ${Math.floor(secondary.g * 0.2)}, ${Math.floor(secondary.b * 0.2)}, ${shadowIntensity * 0.6})`;
+                    
+                    // Use third dominant color or create accent
+                    if (dominantColors.length >= 3) {
+                        const accent = dominantColors[2];
+                        accentShadowColor = `rgba(${Math.floor(accent.r * 0.25)}, ${Math.floor(accent.g * 0.25)}, ${Math.floor(accent.b * 0.25)}, ${shadowIntensity * 0.4})`;
+                    } else {
+                        // Create complementary color
+                        accentShadowColor = `rgba(${Math.floor(255 - r * 0.3)}, ${Math.floor(255 - g * 0.3)}, ${Math.floor(255 - b * 0.3)}, ${shadowIntensity * 0.3})`;
+                    }
+                } else {
+                    // Fallback to original method
+                    const shadowR = Math.floor(255 - r * 0.3);
+                    const shadowG = Math.floor(255 - g * 0.3);
+                    const shadowB = Math.floor(255 - b * 0.3);
+                    
+                    primaryShadowColor = `rgba(${Math.floor(r * 0.2)}, ${Math.floor(g * 0.2)}, ${Math.floor(b * 0.2)}, ${shadowIntensity * 0.8})`;
+                    complementaryShadowColor = `rgba(${shadowR}, ${shadowG}, ${shadowB}, ${shadowIntensity * 0.4})`;
+                    accentShadowColor = `rgba(0, 0, 0, ${shadowIntensity * 0.6})`;
+                }
+                
+                // Create multi-layered shadow effect
+                const shadowGradient = `
+                    radial-gradient(
+                        ellipse at center, 
+                        transparent 0%, 
+                        ${primaryShadowColor} 30%, 
+                        ${complementaryShadowColor} 60%, 
+                        ${accentShadowColor} 85%, 
+                        rgba(0, 0, 0, ${shadowIntensity * 0.8}) 100%
+                    )
+                `;
+                
+                // Update shadow layers
+                dynamicShadow.style.background = shadowGradient;
+                dynamicShadow.style.opacity = shadowIntensity;
+                
+                // Update shadow pseudo-elements for layered effect
+                dynamicShadow.style.setProperty('--primary-shadow', primaryShadowColor);
+                dynamicShadow.style.setProperty('--complementary-shadow', complementaryShadowColor);
+                dynamicShadow.style.setProperty('--neutral-shadow', accentShadowColor);
+                
+                // Add subtle color cast to the entire shadow area
+                const colorCast = `rgba(${Math.floor(r * 0.05)}, ${Math.floor(g * 0.05)}, ${Math.floor(b * 0.05)}, ${shadowIntensity * 0.2})`;
+                dynamicShadow.style.boxShadow = `0 0 50px 20px ${colorCast}`;
+            }
+            
+            // Mouse movement lighting effect
+            let mouseX = 0, mouseY = 0;
+            document.addEventListener('mousemove', (e) => {
+                if (!isPlaying) return;
+                
+                const rect = videoContainer.getBoundingClientRect();
+                mouseX = (e.clientX - rect.left) / rect.width;
+                mouseY = (e.clientY - rect.top) / rect.height;
+                
+                // Adjust light positions based on mouse
+                lightTopLeft.style.transform = `translate(${mouseX * 20}px, ${mouseY * 20}px)`;
+                lightTopRight.style.transform = `translate(${-mouseX * 20}px, ${mouseY * 20}px)`;
+                lightBottomLeft.style.transform = `translate(${mouseX * 20}px, ${-mouseY * 20}px)`;
+                lightBottomRight.style.transform = `translate(${-mouseX * 20}px, ${-mouseY * 20}px)`;
+            });
+            
+            // Initialize lights when page loads
+            initAmbientLights();
+            
+            // Initialize video preview system
+            initVideoPreview();
+            
+            // Video preview functions
+            function initVideoPreview() {
+                // Set canvas size
+                previewCanvas.width = 160;
+                previewCanvas.height = 90;
+                
+                // Add mouse event listeners to progress container
+                progressContainer.addEventListener('mousemove', handlePreviewMouseMove);
+                progressContainer.addEventListener('mouseenter', showPreview);
+                progressContainer.addEventListener('mouseleave', hidePreview);
+            }
+            
+            function handlePreviewMouseMove(e) {
+                if (!video.duration || isNaN(video.duration)) return;
+                
+                const rect = progressContainer.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const progressWidth = rect.width;
+                const seekPercent = mouseX / progressWidth;
+                const seekTime = seekPercent * video.duration;
+                
+                // Update preview position
+                updatePreviewPosition(mouseX, progressWidth);
+                
+                // Update preview time
+                previewTime.textContent = formatTime(seekTime);
+                
+                // Capture frame for preview (does not affect video playback)
+                capturePreviewFrame(seekTime);
+            }
+            
+            function updatePreviewPosition(mouseX, progressWidth) {
+                const previewWidth = 160;
+                const previewLeft = Math.max(0, Math.min(mouseX - previewWidth / 2, progressWidth - previewWidth));
+                videoPreview.style.left = `${previewLeft}px`;
+            }
+            
+            function capturePreviewFrame(time) {
+                if (!video.duration || isNaN(video.duration)) return;
+                
+                // Throttle preview updates to avoid performance issues
+                if (previewTimeout) {
+                    clearTimeout(previewTimeout);
+                }
+                
+                previewTimeout = setTimeout(() => {
+                    // Show loading indicator
+                    previewLoading.classList.add('active');
+                    
+                    // Create a temporary video element for preview only
+                    const tempVideo = document.createElement('video');
+                    tempVideo.crossOrigin = 'anonymous';
+                    tempVideo.muted = true;
+                    tempVideo.currentTime = time;
+                    
+                    // Copy the source from the main video
+                    tempVideo.src = video.src;
+                    
+                    tempVideo.addEventListener('loadeddata', () => {
+                        try {
+                            // Draw video frame to preview canvas
+                            previewCtx.drawImage(tempVideo, 0, 0, previewCanvas.width, previewCanvas.height);
+                            
+                            // Hide loading indicator
+                            previewLoading.classList.remove('active');
+                            
+                            // Clean up temporary video
+                            tempVideo.remove();
+                        } catch (error) {
+                            console.log('Preview capture error:', error);
+                            previewLoading.classList.remove('active');
+                            tempVideo.remove();
+                        }
+                    });
+                    
+                    tempVideo.addEventListener('error', () => {
+                        console.log('Preview video error');
+                        previewLoading.classList.remove('active');
+                        tempVideo.remove();
+                    });
+                    
+                    // Load the video
+                    tempVideo.load();
+                }, 100); // Throttle to 100ms
+            }
+            
+            function showPreview() {
+                clearTimeout(previewTimeout);
+                videoPreview.classList.add('active');
+                isPreviewActive = true;
+            }
+            
+            function hidePreview() {
+                previewTimeout = setTimeout(() => {
+                    videoPreview.classList.remove('active');
+                    isPreviewActive = false;
+                }, 300);
+            }
+            
+            // Pulsing light effect
+            function pulseLights() {
+                if (!isPlaying) return;
+                
+                const time = Date.now() * 0.001;
+                const pulse = Math.sin(time * 2) * 0.1 + 0.9;
+                const pulse2 = Math.sin(time * 1.5 + 1) * 0.08 + 0.92;
+                const pulse3 = Math.sin(time * 2.5 + 2) * 0.06 + 0.94;
+                
+                // Corner lights
+                lightTopLeft.style.filter = `blur(40px) brightness(${pulse})`;
+                lightTopRight.style.filter = `blur(40px) brightness(${pulse * 0.9})`;
+                lightBottomLeft.style.filter = `blur(40px) brightness(${pulse * 0.8})`;
+                lightBottomRight.style.filter = `blur(40px) brightness(${pulse * 0.7})`;
+                lightCenter.style.filter = `blur(40px) brightness(${pulse * 0.6})`;
+                
+                // Top edge lights
+                lightTopEdge1.style.filter = `blur(40px) brightness(${pulse2})`;
+                lightTopEdge2.style.filter = `blur(40px) brightness(${pulse2 * 1.1})`;
+                lightTopEdge3.style.filter = `blur(40px) brightness(${pulse2})`;
+                
+                // Bottom edge lights
+                lightBottomEdge1.style.filter = `blur(40px) brightness(${pulse3})`;
+                lightBottomEdge2.style.filter = `blur(40px) brightness(${pulse3 * 1.05})`;
+                lightBottomEdge3.style.filter = `blur(40px) brightness(${pulse3})`;
+                
+                // Side edge lights
+                lightLeftEdge1.style.filter = `blur(40px) brightness(${pulse * 0.8})`;
+                lightLeftEdge2.style.filter = `blur(40px) brightness(${pulse * 0.8})`;
+                lightRightEdge1.style.filter = `blur(40px) brightness(${pulse * 0.8})`;
+                lightRightEdge2.style.filter = `blur(40px) brightness(${pulse * 0.8})`;
+                
+                requestAnimationFrame(pulseLights);
+            }
+            
+            // Start pulsing when video plays
+            video.addEventListener('play', () => {
+                isPlaying = true;
+                pulseLights();
+            });
+            
+            video.addEventListener('pause', () => {
+                isPlaying = false;
+            });
+            
+            // Font Awesome icons since we can't import them
+            function replaceIcons() {
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                pipBtn.innerHTML = '<i class="fas fa-compress-alt"></i>';
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            }
+            replaceIcons();
+            
+            // Play/Pause
+            playBtn.addEventListener('click', togglePlay);
+            video.addEventListener('click', togglePlay);
+            
+            function togglePlay() {
+                if (video.paused) {
+                    video.play();
+                    playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                    isPlaying = true;
+                } else {
+                    video.pause();
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    isPlaying = false;
+                }
+            }
+            
+            // Progress bar
+            video.addEventListener('timeupdate', updateProgress);
+            
+            function updateProgress() {
+                const percent = (video.currentTime / video.duration) * 100;
+                progress.style.width = `${percent}%`;
+                
+                // Update time displays
+                currentTimeDisplay.textContent = formatTime(video.currentTime);
+                durationDisplay.textContent = formatTime(video.duration);
+            }
+            
+            function formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+            
+            // Seek - only on click, not on hover
+            progressContainer.addEventListener('click', seek);
+            
+            function seek(e) {
+                const seekTime = (e.offsetX / progressContainer.offsetWidth) * video.duration;
+                video.currentTime = seekTime;
+            }
+            
+            // Volume
+            volumeSlider.addEventListener('input', setVolume);
+            
+            function setVolume() {
+                video.volume = volumeSlider.value;
+                if (video.volume === 0) {
+                    muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                } else {
+                    muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                }
+            }
+            
+            // Mute
+            muteBtn.addEventListener('click', toggleMute);
+            
+            function toggleMute() {
+                video.muted = !video.muted;
+                if (video.muted) {
+                    muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                    volumeSlider.value = 0;
+                } else {
+                    muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                    volumeSlider.value = video.volume;
+                }
+            }
+            
+            // Fullscreen
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            
+            function toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    videoContainer.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                    });
+                    fullscreenBtn.innerHTML = '<i class="fas fa-compress-alt"></i>';
+                } else {
+                    document.exitFullscreen();
+                    fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                }
+            }
+            
+            // Picture in Picture
+            pipBtn.addEventListener('click', togglePip);
+            
+            async function togglePip() {
+                try {
+                    if (video !== document.pictureInPictureElement) {
+                        await video.requestPictureInPicture();
+                    } else {
+                        await document.exitPictureInPicture();
+                    }
+                } catch (error) {
+                    console.error('Picture in Picture error:', error);
+                }
+            }
+            
+            // Ambient mode effect
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 32;
+            canvas.height = 18;
+            
+            let lastColors = { r: 0, g: 0, b: 0 };
+            let colorHistory = [];
+            let dominantColors = [];
+            
+            video.addEventListener('play', () => {
+                ambientEffect();
+            });
+            
+            // Initialize preview when video metadata is loaded
+            video.addEventListener('loadedmetadata', () => {
+                // Preview system is ready
+                console.log('Video preview system ready');
+            });
+            
+            function ambientEffect() {
+                if (video.paused || video.ended) return;
+                
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                
+                // Analyze multiple zones for better color detection
+                const zones = [
+                    { x: 0, y: 0, w: canvas.width, h: canvas.height }, // Full frame
+                    { x: 0, y: 0, w: canvas.width/2, h: canvas.height/2 }, // Top-left
+                    { x: canvas.width/2, y: 0, w: canvas.width/2, h: canvas.height/2 }, // Top-right
+                    { x: 0, y: canvas.height/2, w: canvas.width/2, h: canvas.height/2 }, // Bottom-left
+                    { x: canvas.width/2, y: canvas.height/2, w: canvas.width/2, h: canvas.height/2 } // Bottom-right
+                ];
+                
+                let totalR = 0, totalG = 0, totalB = 0;
+                let totalWeight = 0;
+                let zoneColors = [];
+                
+                zones.forEach((zone, index) => {
+                    const weight = index === 0 ? 0.5 : 0.125; // Center zone has more weight
+                    let zoneR = 0, zoneG = 0, zoneB = 0, pixelCount = 0;
+                    
+                    for (let y = zone.y; y < zone.y + zone.h; y++) {
+                        for (let x = zone.x; x < zone.x + zone.w; x++) {
+                            const i = (y * canvas.width + x) * 4;
+                            zoneR += pixelData[i];
+                            zoneG += pixelData[i + 1];
+                            zoneB += pixelData[i + 2];
+                            pixelCount++;
+                        }
+                    }
+                    
+                    if (pixelCount > 0) {
+                        const avgR = Math.floor(zoneR / pixelCount);
+                        const avgG = Math.floor(zoneG / pixelCount);
+                        const avgB = Math.floor(zoneB / pixelCount);
+                        
+                        totalR += avgR * weight;
+                        totalG += avgG * weight;
+                        totalB += avgB * weight;
+                        totalWeight += weight;
+                        
+                        zoneColors.push({ r: avgR, g: avgG, b: avgB, weight });
+                    }
+                });
+                
+                // Calculate final colors
+                const r = Math.floor(totalR / totalWeight);
+                const g = Math.floor(totalG / totalWeight);
+                const b = Math.floor(totalB / totalWeight);
+                
+                // Find dominant colors for shadow effects
+                dominantColors = findDominantColors(zoneColors);
+                
+                // Adjust edge lighting based on brightest corner
+                adjustEdgeLightingByBrightness(zoneColors);
+                
+                // Smooth color transitions
+                const smoothFactor = 0.3;
+                const smoothR = Math.floor(lastColors.r * (1 - smoothFactor) + r * smoothFactor);
+                const smoothG = Math.floor(lastColors.g * (1 - smoothFactor) + g * smoothFactor);
+                const smoothB = Math.floor(lastColors.b * (1 - smoothFactor) + b * smoothFactor);
+                
+                lastColors = { r: smoothR, g: smoothG, b: smoothB };
+                
+                // Add to history for dynamic effects
+                colorHistory.push({ r: smoothR, g: smoothG, b: smoothB });
+                if (colorHistory.length > 10) colorHistory.shift();
+                
+                // Create dynamic ambient effect with multiple layers
+                const primaryColor = `rgb(${smoothR}, ${smoothG}, ${smoothB})`;
+                const secondaryColor = colorHistory.length > 5 ? 
+                    `rgb(${Math.floor(smoothR * 0.8)}, ${Math.floor(smoothG * 0.8)}, ${Math.floor(smoothB * 0.8)})` : 
+                    primaryColor;
+                
+                ambientOverlay.style.background = `radial-gradient(ellipse at center, ${primaryColor} 0%, ${secondaryColor} 40%, transparent 70%)`;
+                ambientOverlay.style.filter = `blur(80px) saturate(1.2) brightness(${1 + (smoothR + smoothG + smoothB) / 765 * 0.3})`;
+                
+                // Update ambient lighting based on video content
+                updateAmbientLights(video.playbackRate, [smoothR, smoothG, smoothB]);
+                
+                requestAnimationFrame(ambientEffect);
+            }
+            
+            // Find dominant colors for shadow effects
+            function findDominantColors(zoneColors) {
+                // Sort colors by weight and return top 3
+                return zoneColors
+                    .sort((a, b) => b.weight - a.weight)
+                    .slice(0, 3)
+                    .map(color => ({
+                        r: color.r,
+                        g: color.g,
+                        b: color.b,
+                        weight: color.weight
+                    }));
+            }
+            
+            // Detect brightest corner and adjust edge lighting
+            function adjustEdgeLightingByBrightness(zoneColors) {
+                if (zoneColors.length < 4) return;
+                
+                // Calculate brightness for each corner
+                const cornerBrightness = zoneColors.slice(1, 5).map((color, index) => {
+                    const brightness = (color.r * 0.299 + color.g * 0.587 + color.b * 0.114) / 255;
+                    return { index, brightness, color };
+                });
+                
+                // Find the brightest corner
+                const brightestCorner = cornerBrightness.reduce((max, current) => 
+                    current.brightness > max.brightness ? current : max
+                );
+                
+                // Reset all edge lights to base intensity
+                const baseIntensity = 0.7;
+                const edgeLights = [
+                    lightTopEdge1, lightTopEdge2, lightTopEdge3,
+                    lightBottomEdge1, lightBottomEdge2, lightBottomEdge3,
+                    lightLeftEdge1, lightLeftEdge2,
+                    lightRightEdge1, lightRightEdge2
+                ];
+                
+                edgeLights.forEach(light => {
+                    light.style.opacity = baseIntensity;
+                });
+                
+                // Boost lighting based on brightest corner
+                const boostFactor = Math.min(brightestCorner.brightness * 2, 1.5);
+                const cornerIndex = brightestCorner.index;
+                
+                // Define target intensities for each corner
+                const targetIntensities = {
+                    0: { // Top-left corner
+                        topEdge1: baseIntensity * boostFactor,
+                        leftEdge1: baseIntensity * boostFactor,
+                        topEdge2: baseIntensity * (boostFactor * 0.8)
+                    },
+                    1: { // Top-right corner
+                        topEdge3: baseIntensity * boostFactor,
+                        rightEdge1: baseIntensity * boostFactor,
+                        topEdge2: baseIntensity * (boostFactor * 0.8)
+                    },
+                    2: { // Bottom-left corner
+                        bottomEdge1: baseIntensity * boostFactor,
+                        leftEdge2: baseIntensity * boostFactor,
+                        bottomEdge2: baseIntensity * (boostFactor * 0.8)
+                    },
+                    3: { // Bottom-right corner
+                        bottomEdge3: baseIntensity * boostFactor,
+                        rightEdge2: baseIntensity * boostFactor,
+                        bottomEdge2: baseIntensity * (boostFactor * 0.8)
+                    }
+                };
+                
+                // Apply smooth transitions to all edge lights
+                const edgeLightMap = {
+                    topEdge1: lightTopEdge1,
+                    topEdge2: lightTopEdge2,
+                    topEdge3: lightTopEdge3,
+                    bottomEdge1: lightBottomEdge1,
+                    bottomEdge2: lightBottomEdge2,
+                    bottomEdge3: lightBottomEdge3,
+                    leftEdge1: lightLeftEdge1,
+                    leftEdge2: lightLeftEdge2,
+                    rightEdge1: lightRightEdge1,
+                    rightEdge2: lightRightEdge2
+                };
+                
+                // Apply target intensities with smooth transitions
+                Object.keys(edgeLightMap).forEach(lightKey => {
+                    const light = edgeLightMap[lightKey];
+                    const targetIntensity = targetIntensities[cornerIndex][lightKey] || baseIntensity;
+                    smoothEdgeLightTransition(light, targetIntensity);
+                });
+                
+                // Add color tint to boosted lights
+                const [r, g, b] = [brightestCorner.color.r, brightestCorner.color.g, brightestCorner.color.b];
+                const boostColor = `rgba(${r}, ${g}, ${b}, 0.2)`;
+                
+                // Apply color boost to the brightest corner's edges
+                const boostedLights = getBoostedLights(cornerIndex);
+                boostedLights.forEach(light => {
+                    if (light) {
+                        const currentBg = light.style.background;
+                        const enhancedColor = `rgba(${r}, ${g}, ${b}, 0.25)`;
+                        light.style.background = `radial-gradient(circle, ${enhancedColor} 0%, transparent 70%)`;
+                    }
+                });
+            }
+            
+            // Get lights that should be boosted for a specific corner
+            function getBoostedLights(cornerIndex) {
+                switch (cornerIndex) {
+                    case 0: // Top-left
+                        return [lightTopEdge1, lightLeftEdge1, lightTopEdge2];
+                    case 1: // Top-right
+                        return [lightTopEdge3, lightRightEdge1, lightTopEdge2];
+                    case 2: // Bottom-left
+                        return [lightBottomEdge1, lightLeftEdge2, lightBottomEdge2];
+                    case 3: // Bottom-right
+                        return [lightBottomEdge3, lightRightEdge2, lightBottomEdge2];
+                    default:
+                        return [];
+                }
+            }
+            
+            // Smooth edge light transitions
+            let lastEdgeIntensities = {};
+            const edgeTransitionSpeed = 0.1;
+            
+            function smoothEdgeLightTransition(light, targetIntensity) {
+                const currentIntensity = parseFloat(light.style.opacity) || 0.7;
+                const newIntensity = currentIntensity + (targetIntensity - currentIntensity) * edgeTransitionSpeed;
+                light.style.opacity = newIntensity;
+            }
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                
+                switch (e.code) {
+                    case 'Space':
+                        e.preventDefault();
+                        togglePlay();
+                        break;
+                    case 'ArrowRight':
+                        video.currentTime += 5;
+                        break;
+                    case 'ArrowLeft':
+                        video.currentTime -= 5;
+                        break;
+                    case 'KeyM':
+                        toggleMute();
+                        break;
+                    case 'KeyF':
+                        toggleFullscreen();
+                        break;
+                    case 'KeyP':
+                        togglePip();
+                        break;
+                    case 'KeyL':
+                        // Toggle ambient lights intensity
+                        lightIntensity = lightIntensity === 0 ? 1 : 0;
+                        updateLightIntensity();
+                        break;
+                    case 'BracketLeft':
+                        // Decrease light intensity
+                        lightIntensity = Math.max(0, lightIntensity - 0.2);
+                        updateLightIntensity();
+                        break;
+                    case 'BracketRight':
+                        // Increase light intensity
+                        lightIntensity = Math.min(1, lightIntensity + 0.2);
+                        updateLightIntensity();
+                        break;
+                }
+            });
+            
+            // Update light intensity manually
+            function updateLightIntensity() {
+                const intensity = lightIntensity;
+                
+                // Corner lights
+                lightTopLeft.style.opacity = intensity * 0.8;
+                lightTopRight.style.opacity = intensity * 0.7;
+                lightBottomLeft.style.opacity = intensity * 0.6;
+                lightBottomRight.style.opacity = intensity * 0.5;
+                lightCenter.style.opacity = intensity * 0.4;
+                
+                // Top edge lights
+                lightTopEdge1.style.opacity = intensity * 0.9;
+                lightTopEdge2.style.opacity = intensity * 1.0;
+                lightTopEdge3.style.opacity = intensity * 0.9;
+                
+                // Bottom edge lights
+                lightBottomEdge1.style.opacity = intensity * 0.8;
+                lightBottomEdge2.style.opacity = intensity * 0.9;
+                lightBottomEdge3.style.opacity = intensity * 0.8;
+                
+                // Side edge lights
+                lightLeftEdge1.style.opacity = intensity * 0.7;
+                lightLeftEdge2.style.opacity = intensity * 0.7;
+                lightRightEdge1.style.opacity = intensity * 0.7;
+                lightRightEdge2.style.opacity = intensity * 0.7;
+            }
+        });
+    </script>
+</body>
+</html>
