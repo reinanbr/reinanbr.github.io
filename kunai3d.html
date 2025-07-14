@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minato Kunai 3D</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            min-height: 100vh;
+            background: url('https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2loNHBoMnJ1aDB1ZDlrczJ1OTNheWd0eHZhaTNyYWR2YWtlc3g0ayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/UA0gnLqOIXWw1ae3od/giphy.gif') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #kunai3d-canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            outline: none;
+        }
+        .title {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffd700;
+            font-size: 2.2rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-shadow: 2px 2px 8px #8b0000, 0 0 20px #ffd700;
+            z-index: 10;
+            letter-spacing: 2px;
+            pointer-events: none;
+        }
+        @media (max-width: 600px) {
+            .title { font-size: 1.2rem; top: 10px; }
+        }
+    </style>
+
+
+</head>
+<body>
+    <div class="title">Minato's Kunai 3D</div>
+    <canvas id="kunai3d-canvas"></canvas>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.min.js"></script>
+<script>
+// Scene setup
+const scene = new THREE.Scene();
+scene.background = null;
+
+// Camera
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0.5, 2.5);
+
+// Renderer
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('kunai3d-canvas'), antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0); // transparent
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xfff8e1, 1.2);
+dirLight.position.set(0, 4, 4);
+scene.add(dirLight);
+
+// Orbit Controls
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 11;
+controls.maxDistance = 32;
+controls.minPolarAngle = 0;
+controls.maxPolarAngle = Math.PI;
+controls.screenSpacePanning = true;
+controls.enablePan = true; // Allow full orbit
+
+// Load Textures
+const textureLoader = new THREE.TextureLoader();
+const texPath = 'blinx/static/minato-kunai/textures/';
+const textures = {
+    map: textureLoader.load(texPath + 'None_albedo.jpg'),
+    aoMap: textureLoader.load(texPath + 'None_AO.jpg'),
+    metalnessMap: textureLoader.load(texPath + 'None_metallic.jpg'),
+    normalMap: textureLoader.load(texPath + 'None_normal.png'),
+    roughnessMap: textureLoader.load(texPath + 'None_roughness.jpg'),
+};
+
+// Load OBJ Model
+const objLoader = new THREE.OBJLoader();
+objLoader.load(
+    'blinx/static/minato-kunai/source/model.obj',
+    function (object) {
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                child.material = new THREE.MeshStandardMaterial({
+                    map: textures.map,
+                    aoMap: textures.aoMap,
+                    metalnessMap: textures.metalnessMap,
+                    normalMap: textures.normalMap,
+                    roughnessMap: textures.roughnessMap,
+                    metalness: 0.7,
+                    roughness: 0.4,
+                    aoMapIntensity: 1.0,
+                    envMapIntensity: 1.0,
+                });
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        object.scale.set(0.6, 0.6, 0.6);
+        object.position.set(0, 3.6, 0);
+        scene.add(object);
+    },
+    function (xhr) {
+        // Progress
+    },
+    function (error) {
+        alert('Erro ao carregar o modelo 3D do kunai.');
+    }
+);
+
+// Animation loop
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+animate();
+
+// Responsive
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html> 

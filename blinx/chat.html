@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - Blinx</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: url(https://cur.cursors-4u.net/special/spe-2/spe114.cur), auto !important;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gif-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExZHYzbzR5bHl1YnlxdnVvdzhtdHVoZ3J2cHJ5ZmUwdHc0Ynk2Zm5jcSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/skVe8kyj61sqS0RlSZ/giphy.gif');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: -2;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1;
+        }
+
+        .chat-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            background: rgba(255, 107, 53, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            width: 100%;
+            max-width: 800px;
+            height: 80vh;
+            max-height: 600px;
+            box-shadow: 0 25px 45px rgba(255, 107, 53, 0.2), inset 0 0 20px rgba(255, 215, 0, 0.1);
+            animation: slideIn 0.8s ease-out;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+            cursor: move;
+        }
+
+        .chat-container.dragging {
+            transition: none;
+            box-shadow: 0 30px 60px rgba(255, 107, 53, 0.4), inset 0 0 30px rgba(255, 215, 0, 0.2);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chat-header {
+            padding: 20px 25px;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(90deg, rgba(255, 107, 53, 0.2), rgba(255, 215, 0, 0.2));
+        }
+
+        .chat-header h1 {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .online-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .message {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.sent {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b35 0%, #ffd700 100%);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .message.received .message-content {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message.sent .message-content {
+            background: linear-gradient(135deg, #ff6b35 0%, #ffd700 100%);
+            color: #fff;
+            border-bottom-right-radius: 5px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            box-shadow: 0 2px 10px rgba(255, 107, 53, 0.3);
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        .message.sent .message-time {
+            text-align: left;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .typing-indicator.visible {
+            opacity: 1;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .chat-input {
+            padding: 20px 25px;
+            border-top: 2px solid rgba(255, 215, 0, 0.3);
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            background: linear-gradient(90deg, rgba(255, 107, 53, 0.1), rgba(255, 215, 0, 0.1));
+        }
+
+        .input-container {
+            flex: 1;
+            position: relative;
+        }
+
+        .message-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 25px;
+            background: rgba(255, 107, 53, 0.1);
+            color: #fff;
+            font-size: 1rem;
+            resize: none;
+            max-height: 100px;
+            min-height: 50px;
+            transition: all 0.3s ease;
+        }
+
+        .message-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .message-input:focus {
+            outline: none;
+            background: rgba(255, 107, 53, 0.2);
+            border-color: rgba(255, 215, 0, 0.8);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            background: linear-gradient(135deg, #ff6b35 0%, #ffd700 100%);
+            color: #fff;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+        }
+
+        .send-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .send-btn:active {
+            transform: scale(0.95);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            transform: none;
+        }
+
+        .emoji-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 215, 0, 0.4);
+            background: rgba(255, 107, 53, 0.15);
+            color: #fff;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+        }
+
+        .emoji-btn:hover {
+            background: rgba(255, 107, 53, 0.3);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+        }
+
+        /* Floating particles effect */
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            background: linear-gradient(45deg, rgba(255, 107, 53, 0.3), rgba(255, 215, 0, 0.3));
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px) rotate(0deg);
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* Emoji picker styles */
+        .emoji-picker {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            max-width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .emoji-picker.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .emoji-picker::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .emoji-picker::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .emoji-picker::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        /* Emoji Categories Styles */
+        .emoji-category {
+            margin-bottom: 20px;
+        }
+
+        .emoji-category-title {
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .emoji-item {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: none;
+            font-size: 1.2rem;
+            border-radius: 5px;
+            transition: background 0.2s ease;
+        }
+
+        .emoji-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .chat-container {
+                width: calc(100% - 40px);
+                height: 90vh;
+                max-height: none;
+                top: 5vh;
+                left: 20px;
+                transform: none;
+            }
+
+            .chat-header h1 {
+                font-size: 1.3rem;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+
+            .chat-input {
+                padding: 15px 20px;
+            }
+
+            .emoji-picker {
+                max-width: 280px;
+                left: 50%;
+                transform: translateX(-50%) translateY(10px);
+            }
+
+            .emoji-grid {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 3px;
+            }
+
+            .emoji-item {
+                width: 25px;
+                height: 25px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- GIF Background -->
+    <div class="gif-background"></div>
+    
+    <!-- Floating particles -->
+    <div class="particles" id="particles"></div>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>💬 Chat Blinx</h1>
+            <div class="online-status">
+                <div class="status-dot"></div>
+                <span>Online</span>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages will be added here dynamically -->
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="message-avatar">B</div>
+            <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+
+        <div class="chat-input">
+            <div class="input-container">
+                <textarea 
+                    class="message-input" 
+                    id="messageInput" 
+                    placeholder="Digite sua mensagem..."
+                    rows="1"
+                ></textarea>
+                <div class="emoji-picker" id="emojiPicker">
+                    <!-- Emojis organizados em categorias -->
+                    <div class="emoji-category">
+                        <div class="emoji-category-title">😊 Expressões</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-item">😀</button>
+                            <button class="emoji-item">😃</button>
+                            <button class="emoji-item">😄</button>
+                            <button class="emoji-item">😁</button>
+                            <button class="emoji-item">😆</button>
+                            <button class="emoji-item">😅</button>
+                            <button class="emoji-item">🤣</button>
+                            <button class="emoji-item">😂</button>
+                            <button class="emoji-item">🙂</button>
+                            <button class="emoji-item">🙃</button>
+                            <button class="emoji-item">😉</button>
+                            <button class="emoji-item">😊</button>
+                            <button class="emoji-item">😇</button>
+                            <button class="emoji-item">🥰</button>
+                            <button class="emoji-item">😍</button>
+                            <button class="emoji-item">🤩</button>
+                            <button class="emoji-item">😘</button>
+                            <button class="emoji-item">😗</button>
+                            <button class="emoji-item">😚</button>
+                            <button class="emoji-item">😙</button>
+                            <button class="emoji-item">😋</button>
+                            <button class="emoji-item">😛</button>
+                            <button class="emoji-item">😜</button>
+                            <button class="emoji-item">🤪</button>
+                            <button class="emoji-item">😝</button>
+                            <button class="emoji-item">🤑</button>
+                            <button class="emoji-item">🤗</button>
+                            <button class="emoji-item">🤭</button>
+                            <button class="emoji-item">🤫</button>
+                        </div>
+                    </div>
+                    
+                    <div class="emoji-category">
+                        <div class="emoji-category-title">🤔 Pensamentos</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-item">🤔</button>
+                            <button class="emoji-item">🤐</button>
+                            <button class="emoji-item">🤨</button>
+                            <button class="emoji-item">😐</button>
+                            <button class="emoji-item">😑</button>
+                            <button class="emoji-item">😶</button>
+                            <button class="emoji-item">😏</button>
+                            <button class="emoji-item">😒</button>
+                            <button class="emoji-item">🙄</button>
+                            <button class="emoji-item">😬</button>
+                            <button class="emoji-item">🤥</button>
+                            <button class="emoji-item">😌</button>
+                            <button class="emoji-item">😔</button>
+                            <button class="emoji-item">😪</button>
+                            <button class="emoji-item">🤤</button>
+                            <button class="emoji-item">😴</button>
+                            <button class="emoji-item">😷</button>
+                            <button class="emoji-item">🤒</button>
+                            <button class="emoji-item">🤕</button>
+                            <button class="emoji-item">🤢</button>
+                            <button class="emoji-item">🤮</button>
+                            <button class="emoji-item">🤧</button>
+                            <button class="emoji-item">🥵</button>
+                            <button class="emoji-item">🥶</button>
+                            <button class="emoji-item">🥴</button>
+                            <button class="emoji-item">😵</button>
+                            <button class="emoji-item">🤯</button>
+                            <button class="emoji-item">🤠</button>
+                            <button class="emoji-item">🥳</button>
+                            <button class="emoji-item">😎</button>
+                            <button class="emoji-item">🤓</button>
+                            <button class="emoji-item">🧐</button>
+                        </div>
+                    </div>
+                    
+                    <div class="emoji-category">
+                        <div class="emoji-category-title">😢 Emoções</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-item">😕</button>
+                            <button class="emoji-item">😟</button>
+                            <button class="emoji-item">🙁</button>
+                            <button class="emoji-item">☹️</button>
+                            <button class="emoji-item">😮</button>
+                            <button class="emoji-item">😯</button>
+                            <button class="emoji-item">😲</button>
+                            <button class="emoji-item">😳</button>
+                            <button class="emoji-item">🥺</button>
+                            <button class="emoji-item">😦</button>
+                            <button class="emoji-item">😧</button>
+                            <button class="emoji-item">😨</button>
+                            <button class="emoji-item">😰</button>
+                            <button class="emoji-item">😥</button>
+                            <button class="emoji-item">😢</button>
+                            <button class="emoji-item">😭</button>
+                            <button class="emoji-item">😱</button>
+                            <button class="emoji-item">😖</button>
+                            <button class="emoji-item">😣</button>
+                            <button class="emoji-item">😞</button>
+                            <button class="emoji-item">😓</button>
+                            <button class="emoji-item">😩</button>
+                            <button class="emoji-item">😫</button>
+                            <button class="emoji-item">🥱</button>
+                            <button class="emoji-item">😤</button>
+                            <button class="emoji-item">😡</button>
+                            <button class="emoji-item">😠</button>
+                            <button class="emoji-item">🤬</button>
+                        </div>
+                    </div>
+                    
+                    <div class="emoji-category">
+                        <div class="emoji-category-title">👋 Gestos</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-item">👍</button>
+                            <button class="emoji-item">👎</button>
+                            <button class="emoji-item">👌</button>
+                            <button class="emoji-item">✌️</button>
+                            <button class="emoji-item">🤞</button>
+                            <button class="emoji-item">🤟</button>
+                            <button class="emoji-item">🤘</button>
+                            <button class="emoji-item">👊</button>
+                            <button class="emoji-item">✊</button>
+                            <button class="emoji-item">🤝</button>
+                            <button class="emoji-item">👏</button>
+                            <button class="emoji-item">🙌</button>
+                            <button class="emoji-item">👐</button>
+                            <button class="emoji-item">🤲</button>
+                            <button class="emoji-item">🙏</button>
+                            <button class="emoji-item">✍️</button>
+                            <button class="emoji-item">💪</button>
+                            <button class="emoji-item">🦵</button>
+                            <button class="emoji-item">🦶</button>
+                            <button class="emoji-item">👂</button>
+                            <button class="emoji-item">👃</button>
+                            <button class="emoji-item">🧠</button>
+                            <button class="emoji-item">🫀</button>
+                            <button class="emoji-item">🫁</button>
+                            <button class="emoji-item">🦷</button>
+                            <button class="emoji-item">🦴</button>
+                            <button class="emoji-item">👀</button>
+                            <button class="emoji-item">👁️</button>
+                            <button class="emoji-item">👅</button>
+                            <button class="emoji-item">👄</button>
+                        </div>
+                    </div>
+                    
+                    <div class="emoji-category">
+                        <div class="emoji-category-title">💎 Objetos</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-item">❤️</button>
+                            <button class="emoji-item">🧡</button>
+                            <button class="emoji-item">💛</button>
+                            <button class="emoji-item">💚</button>
+                            <button class="emoji-item">💙</button>
+                            <button class="emoji-item">💜</button>
+                            <button class="emoji-item">🖤</button>
+                            <button class="emoji-item">🤍</button>
+                            <button class="emoji-item">🤎</button>
+                            <button class="emoji-item">💔</button>
+                            <button class="emoji-item">❣️</button>
+                            <button class="emoji-item">💕</button>
+                            <button class="emoji-item">💞</button>
+                            <button class="emoji-item">💓</button>
+                            <button class="emoji-item">💗</button>
+                            <button class="emoji-item">💖</button>
+                            <button class="emoji-item">💘</button>
+                            <button class="emoji-item">💝</button>
+                            <button class="emoji-item">💟</button>
+                            <button class="emoji-item">✨</button>
+                            <button class="emoji-item">⭐</button>
+                            <button class="emoji-item">🌟</button>
+                            <button class="emoji-item">💫</button>
+                            <button class="emoji-item">⚡</button>
+                            <button class="emoji-item">🔥</button>
+                            <button class="emoji-item">💥</button>
+                            <button class="emoji-item">☀️</button>
+                            <button class="emoji-item">🌙</button>
+                            <button class="emoji-item">🌍</button>
+                            <button class="emoji-item">🌎</button>
+                            <button class="emoji-item">🌏</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="emoji-btn" id="emojiBtn">😊</button>
+            <button class="send-btn" id="sendBtn">➤</button>
+        </div>
+    </div>
+
+    <script>
+        // Chat functionality
+        class ChatApp {
+            constructor() {
+                this.messages = [];
+                this.currentUser = 'Você';
+                this.otherUser = 'Blinx';
+                this.isTyping = false;
+                
+                this.initializeElements();
+                this.bindEvents();
+                this.loadSampleMessages();
+                this.createParticles();
+            }
+
+            initializeElements() {
+                this.chatMessages = document.getElementById('chatMessages');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendBtn = document.getElementById('sendBtn');
+                this.emojiBtn = document.getElementById('emojiBtn');
+                this.emojiPicker = document.getElementById('emojiPicker');
+                this.typingIndicator = document.getElementById('typingIndicator');
+            }
+
+            bindEvents() {
+                this.sendBtn.addEventListener('click', () => this.sendMessage());
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                this.messageInput.addEventListener('input', () => {
+                    this.adjustTextareaHeight();
+                    this.updateSendButton();
+                });
+
+                this.emojiBtn.addEventListener('click', () => this.toggleEmojiPicker());
+                this.emojiPicker.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('emoji-item')) {
+                        this.insertEmoji(e.target.textContent);
+                    }
+                });
+
+                // Close emoji picker when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!this.emojiBtn.contains(e.target) && !this.emojiPicker.contains(e.target)) {
+                        this.emojiPicker.classList.remove('visible');
+                    }
+                });
+            }
+
+            loadSampleMessages() {
+                const sampleMessages = [
+                    { text: 'Oi! Como você está? 😊', sender: 'other', time: '10:30' },
+                    { text: 'Olá! Estou bem, obrigado! E você?', sender: 'user', time: '10:31' },
+                    { text: 'Ótimo! Que bom que você está bem! 🌟', sender: 'other', time: '10:32' },
+                    { text: 'Você gosta de Naruto?', sender: 'user', time: '10:33' },
+                    { text: 'Sim! É um dos meus animes favoritos! 🍜', sender: 'other', time: '10:34' },
+                    { text: 'Qual é o seu personagem favorito?', sender: 'user', time: '10:35' },
+                    { text: 'Definitivamente o Naruto! Ele é incrível! 🦊', sender: 'other', time: '10:36' }
+                ];
+
+                sampleMessages.forEach(msg => {
+                    this.addMessage(msg.text, msg.sender, msg.time);
+                });
+            }
+
+            sendMessage() {
+                const text = this.messageInput.value.trim();
+                if (!text) return;
+
+                this.addMessage(text, 'user');
+                this.messageInput.value = '';
+                this.adjustTextareaHeight();
+                this.updateSendButton();
+
+                // Simulate typing indicator
+                this.showTypingIndicator();
+
+                // Simulate response after a delay
+                setTimeout(() => {
+                    this.hideTypingIndicator();
+                    this.simulateResponse(text);
+                }, 1500 + Math.random() * 2000);
+            }
+
+            addMessage(text, sender, time = null) {
+                const message = {
+                    text,
+                    sender,
+                    time: time || this.getCurrentTime()
+                };
+
+                this.messages.push(message);
+                this.renderMessage(message);
+                this.scrollToBottom();
+            }
+
+            renderMessage(message) {
+                const messageElement = document.createElement('div');
+                messageElement.className = `message ${message.sender === 'user' ? 'sent' : 'received'}`;
+
+                const avatar = document.createElement('div');
+                avatar.className = 'message-avatar';
+                avatar.textContent = message.sender === 'user' ? 'V' : 'B';
+
+                const content = document.createElement('div');
+                content.className = 'message-content';
+                content.textContent = message.text;
+
+                const timeElement = document.createElement('div');
+                timeElement.className = 'message-time';
+                timeElement.textContent = message.time;
+
+                content.appendChild(timeElement);
+
+                if (message.sender === 'user') {
+                    messageElement.appendChild(content);
+                    messageElement.appendChild(avatar);
+                } else {
+                    messageElement.appendChild(avatar);
+                    messageElement.appendChild(content);
+                }
+
+                this.chatMessages.appendChild(messageElement);
+            }
+
+            showTypingIndicator() {
+                this.isTyping = true;
+                this.typingIndicator.classList.add('visible');
+                this.scrollToBottom();
+            }
+
+            hideTypingIndicator() {
+                this.isTyping = false;
+                this.typingIndicator.classList.remove('visible');
+            }
+
+            simulateResponse(userMessage) {
+                const responses = [
+                    'Interessante! 🤔',
+                    'Concordo com você! 👍',
+                    'Hmm, deixa eu pensar... 🤔',
+                    'Que legal! 😊',
+                    'Você tem razão! 👏',
+                    'Muito bem! 🌟',
+                    'Continue falando! 🎯',
+                    'Isso é fascinante! ✨',
+                    'Entendo perfeitamente! 💡',
+                    'Que perspectiva interessante! 🎨'
+                ];
+
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                this.addMessage(randomResponse, 'other');
+            }
+
+            getCurrentTime() {
+                const now = new Date();
+                return now.toLocaleTimeString('pt-BR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            }
+
+            scrollToBottom() {
+                setTimeout(() => {
+                    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                }, 100);
+            }
+
+            adjustTextareaHeight() {
+                this.messageInput.style.height = 'auto';
+                this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 100) + 'px';
+            }
+
+            updateSendButton() {
+                const hasText = this.messageInput.value.trim().length > 0;
+                this.sendBtn.disabled = !hasText;
+            }
+
+            toggleEmojiPicker() {
+                this.emojiPicker.classList.toggle('visible');
+            }
+
+            insertEmoji(emoji) {
+                const cursorPos = this.messageInput.selectionStart;
+                const textBefore = this.messageInput.value.substring(0, cursorPos);
+                const textAfter = this.messageInput.value.substring(cursorPos);
+                
+                this.messageInput.value = textBefore + emoji + textAfter;
+                this.messageInput.focus();
+                this.messageInput.setSelectionRange(cursorPos + emoji.length, cursorPos + emoji.length);
+                
+                this.adjustTextareaHeight();
+                this.updateSendButton();
+                this.emojiPicker.classList.remove('visible');
+            }
+
+            createParticles() {
+                const particlesContainer = document.getElementById('particles');
+                const particleCount = 15;
+
+                for (let i = 0; i < particleCount; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    
+                    const size = Math.random() * 3 + 1;
+                    particle.style.width = size + 'px';
+                    particle.style.height = size + 'px';
+                    
+                    particle.style.left = Math.random() * 100 + '%';
+                    particle.style.top = Math.random() * 100 + '%';
+                    
+                    particle.style.animationDelay = Math.random() * 6 + 's';
+                    particle.style.animationDuration = (Math.random() * 3 + 3) + 's';
+                    
+                    particlesContainer.appendChild(particle);
+                }
+            }
+        }
+
+        // Initialize chat when page loads
+        window.addEventListener('load', () => {
+            new ChatApp();
+        });
+
+        // Dragging functionality for chat container
+        class DraggableChat {
+            constructor() {
+                this.chatContainer = document.querySelector('.chat-container');
+                this.isDragging = false;
+                this.currentX;
+                this.currentY;
+                this.initialX;
+                this.initialY;
+                this.xOffset = 0;
+                this.yOffset = 0;
+
+                this.init();
+            }
+
+            init() {
+                this.chatContainer.addEventListener('mousedown', (e) => {
+                    // Only allow dragging from the header area
+                    if (e.target.closest('.chat-header')) {
+                        this.isDragging = true;
+                        this.chatContainer.classList.add('dragging');
+                        
+                        this.initialX = e.clientX - this.xOffset;
+                        this.initialY = e.clientY - this.yOffset;
+                        
+                        e.preventDefault();
+                    }
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (this.isDragging) {
+                        e.preventDefault();
+                        
+                        this.currentX = e.clientX - this.initialX;
+                        this.currentY = e.clientY - this.initialY;
+
+                        this.xOffset = this.currentX;
+                        this.yOffset = this.currentY;
+
+                        this.setTranslate(this.currentX, this.currentY, this.chatContainer);
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (this.isDragging) {
+                        this.isDragging = false;
+                        this.chatContainer.classList.remove('dragging');
+                    }
+                });
+
+                // Prevent dragging when clicking on interactive elements
+                this.chatContainer.addEventListener('click', (e) => {
+                    if (e.target.closest('.chat-messages') || 
+                        e.target.closest('.chat-input') || 
+                        e.target.closest('.emoji-picker')) {
+                        this.isDragging = false;
+                        this.chatContainer.classList.remove('dragging');
+                    }
+                });
+            }
+
+            setTranslate(xPos, yPos, el) {
+                el.style.transform = `translate(${xPos}px, ${yPos}px)`;
+            }
+        }
+
+        // Initialize dragging when page loads
+        window.addEventListener('load', () => {
+            new DraggableChat();
+        });
+
+        // Add interactive particle effects
+        document.addEventListener('mousemove', function(e) {
+            const particles = document.querySelectorAll('.particle');
+            const mouseX = e.clientX / window.innerWidth;
+            const mouseY = e.clientY / window.innerHeight;
+
+            particles.forEach((particle, index) => {
+                const speed = (index + 1) * 0.05;
+                const x = (mouseX - 0.5) * speed;
+                const y = (mouseY - 0.5) * speed;
+                
+                particle.style.transform = `translate(${x}px, ${y}px)`;
+            });
+        });
+    </script>
+</body>
+</html> 
